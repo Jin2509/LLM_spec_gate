@@ -34,4 +34,21 @@ describe("API Route: /api/tickets/[id]/answer (Single-shot 409 enforcement)", ()
     const data = await res.json();
     expect(data.code).toBe("TICKET_ALREADY_SPENT");
   });
+
+  it("POST /api/tickets/[id]/defer defers ticket while keeping status open", async () => {
+    const { POST: handleDefer } = await import("@/app/api/tickets/[id]/defer/route");
+    const req = new NextRequest("http://localhost:3000/api/tickets/ticket_und_ev_1/defer", {
+      method: "POST",
+    });
+
+    const res = await handleDefer(req, {
+      params: Promise.resolve({ id: "ticket_und_ev_1" }),
+    });
+
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.success).toBe(true);
+    expect(data.status).toBe("open");
+  });
 });
+

@@ -22,6 +22,9 @@ import {
   GateChecksSchema,
   GuaranteeNatureSchema,
   GateResultSchema,
+  TaskOutputTypeSchema,
+  AnchorOriginSchema,
+  AcademicTaskSchema,
 } from "./schema";
 
 export type Verdict = z.infer<typeof VerdictSchema>;
@@ -82,3 +85,7 @@ export interface CaseDossier {
   readonly gateResult?: GateResult;
   readonly currentMonitorVersion: string;
 }
+
+export type TaskOutputType = z.infer<typeof TaskOutputTypeSchema>;
+export type AnchorOrigin = z.infer<typeof AnchorOriginSchema>;
+export type AcademicTask = z.infer<typeof AcademicTaskSchema>;

@@ -144,3 +144,31 @@ export const GateResultSchema = z.object({
   unknownGateReason: z.enum(["no_candidate_in_grammar", "rejected_by_gate"]).optional(),
   message: z.string(),
 });
+
+// ── Academic Task Schema (Dataset / Library) ──────────────────────────────
+export const TaskOutputTypeSchema = z.enum([
+  "int",
+  "bool",
+  "str",
+  "float",
+  "list",
+  "tuple",
+  "other",
+]);
+
+export const AnchorOriginSchema = z.enum(["gốc", "dẫn xuất"]);
+
+export const AcademicTaskSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  intentDocstring: z.string(),
+  outputType: TaskOutputTypeSchema,
+  isUniqueOutput: z.boolean(),
+  assignedBy: z.string().default("expert_annotator_1"),
+  anchorOrigin: AnchorOriginSchema.default("gốc"),
+  epsilon: z.number().optional(),
+  hasA2: z.boolean(),
+  hasA3: z.boolean(),
+  anchorLevel: z.enum(["A0", "A1", "A2", "A3"]),
+  isBSynthSupported: z.boolean(),
+});
