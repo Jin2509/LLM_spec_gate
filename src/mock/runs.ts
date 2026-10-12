@@ -11,10 +11,29 @@ import { ACADEMIC_TASKS, type AcademicTask } from "./fixtures/academic-tasks";
 import { heldOutRegistry } from "@/guard/heldout";
 import { evaluateGate } from "@/core/gate";
 import type { RepairCandidate, GateResult } from "@/core/types";
+import {
+  evaluateGatePolicy,
+  determinePassMode,
+  type GatePolicy,
+  type PassMode,
+} from "@/core/repair";
+import {
+  type MonitorVersionRecord,
+  type BadTraceItem,
+  checkTraceViolation,
+  applyPatchRevocation,
+} from "@/core/revocation";
 
 export interface RunEvent {
   seq: number;
-  event: "run_created" | "admission_step" | "admission_completed" | "verdict" | "heldout_locked";
+  event:
+    | "run_created"
+    | "admission_step"
+    | "admission_completed"
+    | "verdict"
+    | "heldout_locked"
+    | "repair_deployed"
+    | "patch_revoked";
   data: Record<string, unknown>;
   timestamp: string;
 }
@@ -281,10 +300,21 @@ class MockRunStore {
     return fullEvent;
   }
 
+  private monitorHistories = new Map<string, MonitorVersionRecord[]>();
+
   public deployRepair(
     caseId: string,
-    repairCandidate: RepairCandidate
-  ): { success: boolean; gateResult: GateResult; nextMonitorVersion: string } {
+    repairCandidate: RepairCandidate,
+    policy: GatePolicy = "standard",
+    options: { isProofVerified?: boolean; hasA2Anchor?: boolean } = { isProofVerified: true, hasA2Anchor: true }
+  ): {
+    success: boolean;
+    gateResult: GateResult;
+    passMode?: PassMode;
+    policyDecision: ReturnType<typeof evaluateGatePolicy>;
+    nextMonitorVersion: string;
+    isShadowOnly: boolean;
+  } {
     // Evaluate G1-G5 gate
     const gateResult = evaluateGate(repairCandidate, {
       pPrimeAcceptsExpected: true,
@@ -293,26 +323,119 @@ class MockRunStore {
       preservesGAndA2: true,
       inRepairGrammar: true,
       rejectsBSynth: true,
-      isProofVerified: true,
+      isProofVerified: options.isProofVerified ?? true,
     });
 
+    const passMode = determinePassMode(gateResult, options);
+    const policyDecision = evaluateGatePolicy(policy, gateResult, passMode);
+
     const run = this.runs.get("run_evalplus_01");
-    let nextVersion = "P_1";
-    if (run) {
+    let nextVersion = run ? run.activeMonitorVersion : "P_0";
+
+    if (policyDecision.canDeploy && !policyDecision.isShadowOnly && run) {
       nextVersion = `P_${parseInt(run.activeMonitorVersion.replace("P_", ""), 10) + 1}`;
       run.activeMonitorVersion = nextVersion;
+
+      const history = this.getMonitorHistory("run_evalplus_01");
+      history.push({
+        version: nextVersion,
+        patchId: repairCandidate.id,
+        guard: repairCandidate.guard,
+        replacement: repairCandidate.replacement,
+        status: "active",
+        deployedAt: new Date().toISOString(),
+      });
+      this.monitorHistories.set("run_evalplus_01", history);
+
+      this.appendEvent("run_evalplus_01", {
+        event: "repair_deployed",
+        data: {
+          caseId,
+          patchId: repairCandidate.id,
+          version: nextVersion,
+          policy,
+          passMode,
+        },
+      });
     }
 
     return {
-      success: gateResult.passed,
+      success: policyDecision.canDeploy,
       gateResult,
+      passMode,
+      policyDecision,
       nextMonitorVersion: nextVersion,
+      isShadowOnly: policyDecision.isShadowOnly,
+    };
+  }
+
+  public getMonitorHistory(runId = "run_evalplus_01"): MonitorVersionRecord[] {
+    let history = this.monitorHistories.get(runId);
+    if (!history) {
+      history = [
+        {
+          version: "P_0",
+          status: "active",
+          deployedAt: "2026-10-12T00:00:00Z",
+        },
+      ];
+      this.monitorHistories.set(runId, history);
+    }
+    return [...history];
+  }
+
+  public injectBadTrace(
+    runId = "run_evalplus_01",
+    badTrace: BadTraceItem
+  ): {
+    revoked: boolean;
+    violatingTrace?: BadTraceItem;
+    reason?: string;
+    newActiveVersion?: string;
+  } {
+    const history = this.getMonitorHistory(runId);
+    const activeRecord = history.find((h) => h.status === "active") || history[history.length - 1]!;
+
+    const check = checkTraceViolation(activeRecord, badTrace);
+    if (!check.shouldRevoke) {
+      return { revoked: false };
+    }
+
+    const { updatedHistory, newActiveVersion } = applyPatchRevocation(
+      history,
+      activeRecord.version,
+      badTrace,
+      new Date().toISOString()
+    );
+
+    this.monitorHistories.set(runId, updatedHistory);
+    const run = this.runs.get(runId);
+    if (run) {
+      run.activeMonitorVersion = newActiveVersion.version;
+    }
+
+    this.appendEvent(runId, {
+      event: "patch_revoked",
+      data: {
+        revokedVersion: activeRecord.version,
+        newActiveVersion: newActiveVersion.version,
+        violatingTraceId: badTrace.id,
+        reason: check.reason,
+      },
+    });
+
+    return {
+      revoked: true,
+      violatingTrace: badTrace,
+      reason: check.reason,
+      newActiveVersion: newActiveVersion.version,
     };
   }
 
   public _resetForTesting(): void {
     this.runs.clear();
     this.runEvents.clear();
+    this.monitorHistories.clear();
     heldOutRegistry._resetForTesting();
     this.createRun({
       id: "run_evalplus_01",

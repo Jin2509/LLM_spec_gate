@@ -89,9 +89,10 @@ export function Sidebar({ currentRunId = "run_evalplus_01" }: SidebarProps) {
           {NAV_ITEMS.map((item) => {
             const label = i18n.navigation[item.key];
             const resolvedHref = item.href.replace("run_evalplus_01", currentRunId);
+            const safePath = pathname || "";
             const isActive =
-              pathname === resolvedHref ||
-              (item.href !== "/" && pathname.startsWith(resolvedHref));
+              safePath === resolvedHref ||
+              (item.href !== "/" && safePath.startsWith(resolvedHref));
 
             return (
               <Link

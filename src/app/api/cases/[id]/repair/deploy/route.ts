@@ -26,9 +26,16 @@ export async function POST(
   }
 
   let bodyCandidate: RepairCandidate | undefined;
+  let policy: "strict" | "standard" | "shadow" = "standard";
+  let isProofVerified = true;
+  let hasA2Anchor = true;
+
   try {
     const body = await request.json();
     bodyCandidate = body.repairCandidate;
+    if (body.policy) policy = body.policy;
+    if (typeof body.isProofVerified === "boolean") isProofVerified = body.isProofVerified;
+    if (typeof body.hasA2Anchor === "boolean") hasA2Anchor = body.hasA2Anchor;
   } catch {
     // Optional candidate in body; fallback to dossier candidate
   }
@@ -41,11 +48,15 @@ export async function POST(
     );
   }
 
-  const result = mockRunStore.deployRepair(id, candidate);
+  const result = mockRunStore.deployRepair(id, candidate, policy, { isProofVerified, hasA2Anchor });
 
   return NextResponse.json(stripGrading({
     success: result.success,
     caseId: id,
+    policy,
+    passMode: result.passMode,
+    policyDecision: result.policyDecision,
+    isShadowOnly: result.isShadowOnly,
     gateResult: result.gateResult,
     previousMonitorVersion: dossier.currentMonitorVersion,
     activeMonitorVersion: result.nextMonitorVersion,

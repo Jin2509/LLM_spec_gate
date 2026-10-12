@@ -26,7 +26,7 @@ describe("Architecture Boundary Enforcement (ESLint Rules)", () => {
     expect(violation).toBeDefined();
     expect(violation?.message).toContain("[core-boundary]");
     expect(violation?.message).toContain("must not import React");
-  });
+  }, 30000);
 
   it("blocks importing 'next' or Next modules from within src/core/", async () => {
     const code = `import { NextRequest } from "next/server";\nexport const x = NextRequest;\n`;

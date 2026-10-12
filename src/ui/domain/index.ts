@@ -12,3 +12,5 @@ export * from "./QueryTicket";
 export * from "./DocketStrip";
 export * from "./CallFeed";
 export * from "./SpecCodeViewer";
+export * from "./RepairGatePanel";
+export * from "./ProvenanceTree";
