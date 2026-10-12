@@ -1,0 +1,53 @@
+/**
+ * src/styles/globals.css
+ *
+ * Global base styles. Imports tokens and Tailwind directives.
+ * Import order matters — tokens must come before Tailwind base.
+ */
+@import "./tokens.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Base resets ─────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  tab-size: 2;
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-ui);
+  background-color: var(--paper-ground);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Smooth theme transitions — suppressed by prefers-reduced-motion above */
+  transition:
+    background-color var(--motion-settle) ease,
+    color var(--motion-settle) ease;
+}
+
+/* ── Code & monospace ────────────────────────────────────────────────────── */
+code, pre, kbd, samp {
+  font-family: var(--font-mono);
+  font-variant-ligatures: none; /* JetBrains Mono: disable code ligatures per spec */
+}
+
+/* ── UNKNOWN verdict card — dashed border, transparent background ──────── */
+/* Applied via .verdict-unknown utility class on any container */
+.verdict-unknown {
+  border: var(--border-unknown);
+  background: transparent;
+}
+
+/* ── Smooth color transitions on theme switch ────────────────────────────── */
+:root {
+  color-scheme: light dark;
+}
