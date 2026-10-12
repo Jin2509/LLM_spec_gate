@@ -122,6 +122,7 @@ export function QueryTicket({
     <div
       role="region"
       aria-label={i18n.ticket.title}
+      aria-live="polite"
       data-testid="query-ticket"
       data-status={ticket.status}
       data-unknown-gate={isUnknownGate ? "true" : "false"}

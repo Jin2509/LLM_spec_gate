@@ -24,6 +24,17 @@ describe("Repair Candidate Ranking & Policy Core", () => {
     message: "Gate passed",
   };
 
+  it("calculates complexity, breadth, and pass modes", () => {
+    const comp = calculateComplexity({ guard: "w > 0", replacement: "ret == 1" });
+    expect(comp).toBeGreaterThan(0);
+
+    const breadth = calculateGuardBreadth("len(w) == 4");
+    expect(breadth).toBe(5);
+
+    const modeProof = determinePassMode(dummyGatePassed, { isProofVerified: true });
+    expect(modeProof).toBe("PASS_PROOF");
+  });
+
   it("deterministically ranks candidates by family, then complexity, then breadth", () => {
     const candidates: RankedRepairCandidate[] = [
       {

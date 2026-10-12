@@ -132,6 +132,9 @@ export function DocketStrip({
           return (
             <div
               key={st.id}
+              tabIndex={0}
+              role="group"
+              aria-label={`Chặng ${st.id}: ${st.name} - ${st.status}`}
               data-testid={`docket-stage-${st.id}`}
               data-status={st.status}
               style={{

@@ -1,36 +1,70 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Adjudicated Dual-Oracle Monitoring v1.4 Testbed
 
-## Getting Started
+UI testbed Next.js App Router (TypeScript strict, pnpm) phục vụ nghiên cứu và thẩm định cho bài báo khoa học **"Adjudicated Dual-Oracle Monitoring v1.4"**.
 
-First, run the development server:
+---
 
+## 🔬 Tính năng Cốt lõi & Kiến trúc
+
+1. **Lõi Hình thức Thuần (`src/core/`)**:
+   - Zero framework/React dependencies.
+   - Các thuật toán chính quy: `equivalence.ts`, `serialize.ts`, `aggregator.ts`, `gate.ts`, `ticket.ts`, `repair.ts`, `revocation.ts`, `experiment.ts`.
+   - Ranh giới kiến trúc được kiểm soát nghiêm ngặt qua ESLint rule `no-restricted-imports`.
+
+2. **Bàn Phân xử (Case Workbench & Docket Strip)**:
+   - Dải hồ sơ 2 pha (Pha 1 Đồng bộ $\to$ Pha 2 Sửa & Kiểm).
+   - Kiểm soát tương tranh tất định bằng `evalId`.
+   - Danh sách lời gọi hàm ảo hóa cuộn mượt mà >5.000 dòng log.
+   - Thẻ hỏi người đơn xung (Single-shot) với tem đóng dấu "ĐÃ SỬ DỤNG".
+
+3. **Không gian Sửa đổi (Repair & Gate) & Thu hồi Bản vá**:
+   - Xếp hạng tất định ứng viên $C \lor (g \land D)$.
+   - Pipeline G1–G5 fail-fast; hỗ trợ 3 chính sách (Strict / Standard / Shadow).
+   - Kho bằng chứng hình thức (Evidence Store) bất biến, kiểm tra $G \cap B = \emptyset$.
+   - Mô phỏng thu hồi bản vá qua cơ chế tiêm vết xấu vào $B$.
+
+4. **Thực nghiệm & Phân tích Kết quả (RQ1–RQ6)**:
+   - Bộ điều phối thực nghiệm với tính tất định tuyệt đối: Cùng seed sinh ra Manifest giống hệt nhau.
+   - Thống kê Bootstrap CI 95% có seed, kiểm soát ngưỡng $n \ge 30$.
+   - Toàn bộ điểm dữ liệu biểu đồ liên kết trực tiếp về witness và Docket Strip.
+   - Xuất dữ liệu: LaTeX tabular, CSV, JSON, Manifest.
+
+---
+
+## 🚀 Khởi chạy Dự án
+
+### 1. Cài đặt Dependencies
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Kiểm tra Toàn diện (Typecheck + Lint + Tests)
+```bash
+pnpm check
+```
+> Tương đương với: `tsc --noEmit && eslint . && vitest run`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 3. Kiểm tra Token Màu sắc (Không dùng mã hex trong `.tsx`)
+```bash
+bash scripts/check-no-hex-in-tsx.sh
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 4. Chạy Môi trường Phát triển (Dev Server)
+```bash
+pnpm dev
+```
+Truy cập [http://localhost:3000](http://localhost:3000).
 
-## Learn More
+### 5. Build Production
+```bash
+pnpm build
+pnpm start
+```
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🛡️ Nguyên tắc An toàn Dữ liệu Khoa học
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Cách ly trường `grading`**: Toàn bộ trường `grading` của bộ benchmark bị lọc bỏ tại `src/guard/grading-proxy.ts`, cấm đọc trực tiếp tại các tầng khác.
+- **Tập Held-out Bất biến**: Sau khi chia tập tất định bằng seed, tập held-out được khóa vĩnh viễn (`src/guard/heldout.ts`).
+- **Bảo mật API Keys**: API Keys chỉ được cấu hình phía server (`.env.local`). Hệ thống cấm lưu trữ API Key ở phía client.
