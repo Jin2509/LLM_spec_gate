@@ -8,30 +8,8 @@
  *   4. Import global styles (tokens → tailwind → resets)
  */
 import type { Metadata } from "next";
-import { Schibsted_Grotesk, JetBrains_Mono } from "next/font/google";
 import { themeInitScript } from "./theme-init";
 import "../styles/globals.css";
-
-// ── Schibsted Grotesk — UI font ───────────────────────────────────────────
-// variable: allows usage as CSS var --font-schibsted-grotesk
-// vietnamese subset covers all diacritics (đ, ă, ơ, ư, ắ, ề, ộ, etc.)
-const schibstedGrotesk = Schibsted_Grotesk({
-  variable: "--font-schibsted-grotesk",
-  subsets: ["latin", "latin-ext"], // latin-ext = full Vietnamese diacritic support
-  weight: ["400", "500", "600"],
-  display: "swap",
-  preload: true,
-});
-
-// ── JetBrains Mono — Code / data font ─────────────────────────────────────
-// Ligatures are disabled globally via CSS: font-variant-ligatures: none
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains-mono",
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  display: "swap",
-  preload: false, // Non-critical; load on demand
-});
 
 export const metadata: Metadata = {
   title: "Adjudicator Lab",
@@ -45,11 +23,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="vi"
-      // data-theme is set by the inline script before paint — avoids FOUC
-      className={`${schibstedGrotesk.variable} ${jetbrainsMono.variable}`}
-    >
+    <html lang="vi">
       <head>
         {/*
          * Anti-FOUC inline script — MUST execute before body renders.

@@ -68,9 +68,9 @@
   --motion-quick:  140ms;  /* Micro-interactions: hover, chip state change */
   --motion-settle: 320ms;  /* Panel transitions, theme switch */
 
-  /* ── Typography (populated by next/font CSS variables) ───────────────── */
-  --font-ui:   var(--font-schibsted-grotesk), system-ui, sans-serif;
-  --font-mono: var(--font-jetbrains-mono), 'Fira Code', ui-monospace, monospace;
+  /* ── Typography (native & system font fallbacks) ─────────────────────── */
+  --font-ui:   'Schibsted Grotesk', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   /* ── UNKNOWN dashed border shorthand ─────────────────────────────────── */
   --border-unknown: 1.5px dashed var(--v-unknown);

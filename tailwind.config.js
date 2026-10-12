@@ -1,9 +1,21 @@
 /** @type {import('tailwindcss').Config} */
 const config = {
   content: [
-    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/features/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/ui/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/app/**/*.js",
+    "./src/app/**/*.ts",
+    "./src/app/**/*.jsx",
+    "./src/app/**/*.tsx",
+    "./src/app/**/*.mdx",
+    "./src/features/**/*.js",
+    "./src/features/**/*.ts",
+    "./src/features/**/*.jsx",
+    "./src/features/**/*.tsx",
+    "./src/features/**/*.mdx",
+    "./src/ui/**/*.js",
+    "./src/ui/**/*.ts",
+    "./src/ui/**/*.jsx",
+    "./src/ui/**/*.tsx",
+    "./src/ui/**/*.mdx",
   ],
   darkMode: ["selector", '[data-theme="dark"]'],
   theme: {
