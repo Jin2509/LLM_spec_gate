@@ -1,23 +1,19 @@
 /**
- * src/ui/chat/ChatTestbed.tsx — LLM-Style Interaction Testbed
+ * src/ui/chat/ChatTestbed.tsx — LLM Interaction Testbed (ChatGPT/Claude Style)
  *
  * Requirements:
- *   - Conversational Message Stream (LLM Interaction style) replacing dense dashboard boxes.
- *   - Left Sidebar:
- *       * Dataset selector (HumanEval+, MBPP+, EvalPlus Illustrative).
- *       * Search & Filter for tasks/test cases with clean status indicators.
- *   - Central Feed Stream:
- *       * [System Output]: Program test execution at witness w (inputs, code output c, monitor evaluation).
- *       * [Interaction - Khi UNKNOWN]: In-stream Prompt Box asking human EXACTLY ONCE with a narrow question.
- *       * Immediate locking ("Đã phản hồi (SPENT)" stamp) upon submission, system posts final resolution.
- *   - Inspection Panel (Drawer / Slide-over):
- *       * Collapsed by default ("Xem chi tiết phân xử (Inspect)" button).
- *       * Opened on demand: Grounded vs Advisory Evidence, RuleLadder R1–R6, Gate G1–G5 checks.
+ *   - Conversational Chat Interface with bottom prompt composer (like ChatGPT / Claude).
+ *   - Clean conversational flow: hides dense technical details by default, allowing natural
+ *     interaction, task re-description ("mô tả lại"), execution triggers, and user answers.
+ *   - In-stream responses: user messages appear on right, assistant answers on left.
+ *   - In-stream Single-Shot Prompt Box for UNKNOWN cases that locks immediately ("SPENT") upon answering.
+ *   - Left Sidebar: Dataset selection (HumanEval+, MBPP+, EvalPlus) & filterable case list.
+ *   - Right Slide-over Inspector Drawer: Detailed formal checks (Evidence, R1–R6, Gate G1–G5).
  *   - Zero hardcoded HEX colors — strictly uses tokens.css variables.
  */
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { SAMPLE_CASES } from "@/mock/fixtures/sample-cases";
 import { ACADEMIC_TASKS } from "@/mock/fixtures/academic-tasks";
 import {
@@ -34,6 +30,17 @@ import type { CaseDossier, HumanQueryTicket, Verdict } from "@/core/types";
 export interface ChatTestbedProps {
   initialCaseId?: string;
   runId?: string;
+}
+
+interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  text: string;
+  timestamp: string;
+  hasDetails?: boolean;
+  isTicketPrompt?: boolean;
+  isResolution?: boolean;
+  verdict?: Verdict;
 }
 
 export function ChatTestbed({
@@ -54,6 +61,13 @@ export function ChatTestbed({
   const [isInspectorOpen, setIsInspectorOpen] = useState<boolean>(false);
   const [inspectorTab, setInspectorTab] = useState<"evidence" | "rules" | "gate">("evidence");
 
+  // Toggle for technical details view inside stream
+  const [showTechnicalDetails, setShowTechnicalDetails] = useState<boolean>(false);
+
+  // Bottom Chat Composer Input State
+  const [composerInput, setComposerInput] = useState<string>("");
+  const [isTyping, setIsTyping] = useState<boolean>(false);
+
   // Local Interactive Tickets State (Single-shot lock)
   const [ticketsState, setTicketsState] = useState<Record<string, HumanQueryTicket>>(() => {
     const init: Record<string, HumanQueryTicket> = {};
@@ -65,10 +79,7 @@ export function ChatTestbed({
     return init;
   });
 
-  // Track run count / trigger state for re-running
-  const [runKey, setRunKey] = useState<number>(0);
-
-  // Prompt Box input state
+  // Ticket input inside prompt box
   const [promptInputValue, setPromptInputValue] = useState<string>("");
   const [isSubmittingAnswer, setIsSubmittingAnswer] = useState<boolean>(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
@@ -86,6 +97,55 @@ export function ChatTestbed({
       }
     );
   }, [activeCase.taskId]);
+
+  // Messages thread state
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Helper to scroll to bottom of messages
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isTyping]);
+
+  // Initialize or reset chat conversation whenever activeCase changes
+  useEffect(() => {
+    const isUnknown =
+      activeCase.adjudication.verdict === "UNKNOWN_EVIDENCE" ||
+      activeCase.adjudication.verdict === "UNKNOWN_CONFLICT";
+
+    const initialMsgs: ChatMessage[] = [
+      {
+        id: `init_runner_${selectedCaseId}`,
+        role: "user",
+        text: `Kiểm thử tác vụ ${activeTask.name} (${activeCase.taskId}) với witness w = ${JSON.stringify(activeCase.witness)}.`,
+        timestamp: new Date().toLocaleTimeString("vi-VN"),
+      },
+      {
+        id: `init_resp_${selectedCaseId}`,
+        role: "assistant",
+        text: `Đã thực thi kiểm thử cho hàm **${activeTask.name}** tại witness: \`w = ${JSON.stringify(
+          activeCase.witness
+        )}\`.\n\n• **Đầu ra thực tế (c):** \`${JSON.stringify(activeCase.codeOutput)}\`\n• **Đặc tả P_0:** ${
+          activeCase.monitorRejectionClause
+            ? `BÁC BỎ (Vi phạm mệnh đề: \`${activeCase.monitorRejectionClause}\`)`
+            : "CHẤP NHẬN"
+        }\n• **Phán xử:** **${activeCase.adjudication.verdict}** (${activeCase.adjudication.matchedRule})\n\n${
+          activeCase.adjudication.explanation
+        }`,
+        timestamp: new Date().toLocaleTimeString("vi-VN"),
+        hasDetails: true,
+        isTicketPrompt: isUnknown,
+        verdict: activeCase.adjudication.verdict,
+      },
+    ];
+
+    setMessages(initialMsgs);
+    setShowTechnicalDetails(false);
+  }, [selectedCaseId, activeCase, activeTask]);
 
   // Available Cases list formatted for sidebar
   const caseList = useMemo(() => {
@@ -164,6 +224,29 @@ export function ChatTestbed({
         },
       }));
       setPromptInputValue("");
+
+      // Append assistant resolution message
+      const resolutionVerdict: Verdict =
+        activeCase.adjudication.verdict === "UNKNOWN_EVIDENCE" ? "ACC" : "SPEC_FAULT";
+
+      const answerLabel =
+        typeof answerVal === "boolean"
+          ? answerVal
+            ? "Chấp nhận"
+            : "Không chấp nhận"
+          : JSON.stringify(answerVal);
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `res_${Date.now()}`,
+          role: "assistant",
+          text: `✓ **Đã ghi nhận phản hồi:** \`${answerLabel}\`.\n\nCâu trả lời đã được đưa vào tập chứng cứ Grounded ($G$). Vé hỏi tương tác người đã chính thức khóa vĩnh viễn (Single-Shot Invariant).\n\n• **Phán xử cập nhật:** **${resolutionVerdict}**\n• **Quy tắc phân xử:** R2 / R4. Chu trình phân xử đã khép lại an toàn.`,
+          timestamp: new Date().toLocaleTimeString("vi-VN"),
+          isResolution: true,
+          verdict: resolutionVerdict,
+        },
+      ]);
     } catch (err: unknown) {
       setSubmissionError(err instanceof Error ? err.message : i18n.ticket.alreadySpentError);
     } finally {
@@ -184,32 +267,152 @@ export function ChatTestbed({
           answeredAt: new Date().toLocaleTimeString("vi-VN"),
         },
       }));
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `uncert_${Date.now()}`,
+          role: "assistant",
+          text: `Bạn đã đánh dấu **Không xác định được (UNCERTAIN)**. Vé hỏi đã khóa vĩnh viễn. Trạng thái vụ việc được giữ nguyên là **UNKNOWN_EVIDENCE** theo nguyên tắc Fail-Closed (không đoán mò).`,
+          timestamp: new Date().toLocaleTimeString("vi-VN"),
+          isResolution: true,
+          verdict: "UNKNOWN_EVIDENCE",
+        },
+      ]);
     } finally {
       setIsSubmittingAnswer(false);
     }
   };
 
-  const handleRerun = () => {
-    setRunKey((prev) => prev + 1);
-  };
+  // Handle message submission from bottom chat composer
+  const handleSendMessage = (textToSend?: string) => {
+    const text = (textToSend ?? composerInput).trim();
+    if (!text) return;
 
-  // Determine final post-interaction verdict
-  const finalVerdict: Verdict = useMemo(() => {
-    if (activeTicket?.status === "spent") {
-      if (activeTicket.isUncertain) {
-        return "UNKNOWN_EVIDENCE";
+    setComposerInput("");
+    const userMsg: ChatMessage = {
+      id: `usr_${Date.now()}`,
+      role: "user",
+      text,
+      timestamp: new Date().toLocaleTimeString("vi-VN"),
+    };
+
+    setMessages((prev) => [...prev, userMsg]);
+    setIsTyping(true);
+
+    // Process user query and generate response
+    setTimeout(() => {
+      setIsTyping(false);
+      const lower = text.toLowerCase();
+
+      // Case 1: Re-description request ("mô tả lại", "giải thích", "chi tiết")
+      if (
+        lower.includes("mô tả") ||
+        lower.includes("giải thích") ||
+        lower.includes("yêu cầu") ||
+        lower.includes("đặc tả")
+      ) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `asst_${Date.now()}`,
+            role: "assistant",
+            text: `### Mô Tả Tác Vụ: ${activeTask.name} (${activeCase.taskId})\n\n**Mục tiêu bài toán:**\n${
+              activeTask.intentDocstring
+            }\n\n**Hành vi kiểm thử:**\n- **Đầu vào witness (w):** \`${JSON.stringify(
+              activeCase.witness
+            )}\`\n- **Đầu ra thực tế của code (c):** \`${JSON.stringify(
+              activeCase.codeOutput
+            )}\`\n- **Đặc tả P_0 kiểm tra:** \`${
+              activeCase.monitorRejectionClause ?? "Mặc định"
+            }\`\n\n**Phân tích nguyên nhân:**\n${
+              activeCase.adjudication.explanation
+            }`,
+            timestamp: new Date().toLocaleTimeString("vi-VN"),
+            hasDetails: true,
+            verdict: activeCase.adjudication.verdict,
+          },
+        ]);
+        return;
       }
-      // If user accepted or provided valid answer, conclude resolution
-      return activeCase.adjudication.verdict === "UNKNOWN_EVIDENCE" ? "ACC" : "SPEC_FAULT";
-    }
-    return activeCase.adjudication.verdict;
-  }, [activeTicket, activeCase.adjudication.verdict]);
+
+      // Case 2: Run test request ("kiểm thử", "chạy lại", "test")
+      if (lower.includes("kiểm thử") || lower.includes("chạy lại") || lower.includes("test")) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `asst_${Date.now()}`,
+            role: "assistant",
+            text: `🔄 **Đã chạy lại kiểm thử:**\n\n• **Kết quả đầu ra:** \`c = ${JSON.stringify(
+              activeCase.codeOutput
+            )}\`\n• **Giám sát đặc tả P_0:** ${
+              activeCase.monitorRejectionClause ? "BÁC BỎ" : "CHẤP NHẬN"
+            }\n• **Phán xử:** **${activeCase.adjudication.verdict}** (${
+              activeCase.adjudication.matchedRule
+            })\n\n${activeCase.adjudication.explanation}`,
+            timestamp: new Date().toLocaleTimeString("vi-VN"),
+            hasDetails: true,
+            verdict: activeCase.adjudication.verdict,
+          },
+        ]);
+        return;
+      }
+
+      // Case 3: Ticket answering via chat ("chấp nhận", "không chấp nhận", "accept", "reject")
+      if (activeTicket && activeTicket.status !== "spent") {
+        if (lower === "chấp nhận" || lower === "có" || lower === "accept" || lower === "yes" || lower === "1") {
+          handleAnswerTicket(true);
+          return;
+        }
+        if (
+          lower === "không chấp nhận" ||
+          lower === "không" ||
+          lower === "reject" ||
+          lower === "no" ||
+          lower === "2"
+        ) {
+          handleAnswerTicket(false);
+          return;
+        }
+        if (lower.includes("không chắc") || lower.includes("uncertain") || lower === "c") {
+          handleUncertain();
+          return;
+        }
+
+        // Value submission for unique output ticket
+        try {
+          const parsed = JSON.parse(text);
+          handleAnswerTicket(parsed);
+          return;
+        } catch {
+          if (/^-?\d+(\.\d+)?$/.test(text)) {
+            handleAnswerTicket(Number(text));
+            return;
+          }
+        }
+      }
+
+      // Default General Response
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `asst_${Date.now()}`,
+          role: "assistant",
+          text: `Tôi đã nhận yêu cầu của bạn: "${text}".\n\n• **Tác vụ hiện tại:** \`${activeTask.name}\`\n• **Phán xử hiện thời:** **${
+            activeCase.adjudication.verdict
+          }**\n\nBạn có thể bấm nút **"Xem chi tiết phân xử (Inspect)"** ở góc trên bên phải để kiểm tra sâu các chốt kiểm G1–G5, chứng cứ Grounded và cây quyết định R1–R6.`,
+          timestamp: new Date().toLocaleTimeString("vi-VN"),
+        },
+      ]);
+    }, 400);
+  };
 
   return (
     <div
       style={{
         display: "flex",
-        height: "100dvh",
+        height: "100%",
+        width: "100%",
         background: "var(--paper-ground)",
         color: "var(--ink)",
         fontFamily: "var(--font-ui)",
@@ -221,9 +424,9 @@ export function ChatTestbed({
          ───────────────────────────────────────────────────────────── */}
       <aside
         style={{
-          width: "320px",
-          minWidth: "280px",
-          maxWidth: "360px",
+          width: "300px",
+          minWidth: "260px",
+          maxWidth: "340px",
           height: "100%",
           background: "var(--paper-surface)",
           borderRight: "1px solid var(--rule)",
@@ -517,7 +720,7 @@ export function ChatTestbed({
           <div style={{ display: "flex", alignItems: "center", gap: "var(--s-3)" }}>
             <button
               type="button"
-              onClick={handleRerun}
+              onClick={() => handleSendMessage("Kiểm thử lại tác vụ này")}
               data-testid="rerun-btn"
               style={{
                 padding: "6px 12px",
@@ -563,7 +766,6 @@ export function ChatTestbed({
 
         {/* Message Stream Scrollable Area */}
         <div
-          key={runKey}
           style={{
             flex: 1,
             overflowY: "auto",
@@ -573,455 +775,462 @@ export function ChatTestbed({
             alignItems: "center",
           }}
         >
-          <div style={{ width: "100%", maxWidth: "760px", display: "flex", flexDirection: "column", gap: "var(--s-6)" }}>
-            {/* ── Message 1: Evaluation Trigger (User / Test Runner) ── */}
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "var(--s-1)",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: "var(--s-2)", fontSize: "11px", fontFamily: "var(--font-mono)", color: "var(--ink-soft)" }}>
-                <span style={{ fontWeight: 600, color: "var(--ink)" }}>Kiểm Thử Viên (Testbed Runner)</span>
-                <span>·</span>
-                <span>Witness w</span>
-              </div>
-              <div
-                style={{
-                  background: "var(--paper-surface)",
-                  border: "1px solid var(--rule)",
-                  borderRadius: "var(--r-card)",
-                  padding: "var(--s-4)",
-                  fontSize: "13px",
-                  lineHeight: 1.6,
-                }}
-              >
-                Đang thực thi kiểm tra cho hàm <code>{activeTask.name}</code> tại witness đầu vào:
-                <pre
+          <div style={{ width: "100%", maxWidth: "760px", display: "flex", flexDirection: "column", gap: "var(--s-5)" }}>
+            {messages.map((msg) => {
+              const isUser = msg.role === "user";
+
+              return (
+                <div
+                  key={msg.id}
                   style={{
-                    margin: "var(--s-2) 0 0",
-                    padding: "var(--s-2) var(--s-3)",
-                    background: "var(--paper-ground)",
-                    border: "1px solid var(--rule)",
-                    borderRadius: "var(--r-cell)",
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "12px",
-                    color: "var(--ink)",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: isUser ? "flex-end" : "flex-start",
+                    gap: "4px",
                   }}
                 >
-                  w = {JSON.stringify(activeCase.witness)}
-                </pre>
-                <div style={{ marginTop: "var(--s-2)", fontSize: "11px", color: "var(--ink-soft)", fontFamily: "var(--font-mono)" }}>
-                  Phiên bản đặc tả giám sát: <strong>{activeCase.currentMonitorVersion}</strong>
-                </div>
-              </div>
-            </div>
-
-            {/* ── Message 2: [System Output] Program Execution Outcome & Monitor ── */}
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "var(--s-1)",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: "var(--s-2)", fontSize: "11px", fontFamily: "var(--font-mono)", color: "var(--ink-soft)" }}>
-                <span style={{ fontWeight: 600, color: "var(--action)" }}>Giám Sát Song Hành (Dual-Oracle Monitor)</span>
-                <span>·</span>
-                <span>System Output</span>
-              </div>
-              <div
-                style={{
-                  background: "var(--paper-surface)",
-                  border: "1px solid var(--rule)",
-                  borderRadius: "var(--r-card)",
-                  padding: "var(--s-4)",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "var(--s-3)",
-                }}
-              >
-                {/* Program Output & Monitor Check */}
-                <div>
-                  <div style={{ fontSize: "11px", color: "var(--ink-soft)", marginBottom: "4px" }}>
-                    Đầu ra thực tế của code (c):
-                  </div>
-                  <pre
+                  <div
                     style={{
-                      margin: 0,
-                      padding: "var(--s-2) var(--s-3)",
-                      background: "var(--paper-ground)",
-                      border: "1px solid var(--rule)",
-                      borderRadius: "var(--r-cell)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "var(--s-2)",
+                      fontSize: "11px",
                       fontFamily: "var(--font-mono)",
+                      color: "var(--ink-soft)",
+                    }}
+                  >
+                    <span style={{ fontWeight: 600, color: isUser ? "var(--ink)" : "var(--action)" }}>
+                      {isUser ? "Kiểm Thử Viên (Testbed Runner)" : "Giám Sát Song Hành (Dual-Oracle Monitor)"}
+                    </span>
+                    <span>·</span>
+                    <span>{msg.timestamp}</span>
+                  </div>
+
+                  <div
+                    style={{
+                      maxWidth: "90%",
+                      background: isUser ? "var(--paper-surface)" : "var(--paper-surface)",
+                      border: isUser ? "1px solid var(--rule)" : "1px solid var(--rule)",
+                      borderRadius: isUser ? "12px 12px 2px 12px" : "12px 12px 12px 2px",
+                      padding: "var(--s-4)",
                       fontSize: "13px",
-                      fontWeight: 600,
-                      color: "var(--action)",
+                      lineHeight: 1.6,
+                      color: "var(--ink)",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
                     }}
                   >
-                    c = {JSON.stringify(activeCase.codeOutput)}
-                  </pre>
-                </div>
+                    {/* Render message text with basic formatting */}
+                    <div style={{ whiteSpace: "pre-line" }}>{msg.text}</div>
 
-                <div
-                  style={{
-                    padding: "var(--s-3)",
-                    background: "var(--paper-ground)",
-                    borderRadius: "var(--r-cell)",
-                    border: "1px solid var(--rule)",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <div style={{ fontSize: "12px", fontFamily: "var(--font-mono)" }}>
-                    <span style={{ color: "var(--ink-soft)" }}>Đặc tả P_0 đánh giá: </span>
-                    <strong
-                      style={{
-                        color:
-                          activeCase.adjudication.verdict === "CODE_FAULT" ||
-                          activeCase.adjudication.verdict === "SPEC_FAULT" ||
-                          activeCase.adjudication.verdict === "DUAL_FAULT" ||
-                          activeCase.adjudication.verdict === "UNKNOWN_GATE"
-                            ? "var(--v-code)"
-                            : "var(--v-acc)",
-                      }}
-                    >
-                      {activeCase.monitorRejectionClause
-                        ? `BÁC BỎ (Vi phạm: ${activeCase.monitorRejectionClause})`
-                        : "CHẤP NHẬN"}
-                    </strong>
+                    {/* Verdict Chip announcement if present */}
+                    {msg.verdict && (
+                      <div style={{ marginTop: "var(--s-3)", display: "flex", alignItems: "center", gap: "var(--s-2)" }}>
+                        <VerdictChip verdict={msg.verdict} showFullLabel />
+                        <button
+                          type="button"
+                          onClick={() => setIsInspectorOpen(true)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "var(--action)",
+                            fontSize: "11px",
+                            fontFamily: "var(--font-mono)",
+                            cursor: "pointer",
+                            padding: 0,
+                            textDecoration: "underline",
+                            marginLeft: "var(--s-2)",
+                          }}
+                        >
+                          Xem bằng chứng & luật áp dụng →
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Collapsible Technical Details (Hidden by default to keep chat clean) */}
+                    {msg.hasDetails && (
+                      <div style={{ marginTop: "var(--s-3)", borderTop: "1px solid var(--rule)", paddingTop: "var(--s-2)" }}>
+                        <button
+                          type="button"
+                          onClick={() => setShowTechnicalDetails((v) => !v)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "var(--ink-soft)",
+                            fontSize: "11px",
+                            fontFamily: "var(--font-mono)",
+                            cursor: "pointer",
+                            padding: 0,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          <span>{showTechnicalDetails ? "▲ Ẩn chi tiết kỹ thuật" : "▼ Hiện chi tiết kỹ thuật (Witness & Spec)"}</span>
+                        </button>
+
+                        {showTechnicalDetails && (
+                          <div
+                            style={{
+                              marginTop: "var(--s-2)",
+                              padding: "var(--s-3)",
+                              background: "var(--paper-ground)",
+                              borderRadius: "var(--r-cell)",
+                              border: "1px solid var(--rule)",
+                              fontSize: "11px",
+                              fontFamily: "var(--font-mono)",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "6px",
+                            }}
+                          >
+                            <div>
+                              <strong>Witness w:</strong> <code>{JSON.stringify(activeCase.witness)}</code>
+                            </div>
+                            <div>
+                              <strong>Code output c:</strong> <code>{JSON.stringify(activeCase.codeOutput)}</code>
+                            </div>
+                            <div>
+                              <strong>Mệnh đề kiểm tra:</strong> <code>{activeCase.monitorRejectionClause ?? "Mặc định"}</code>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* In-stream Prompt Box for UNKNOWN case (Single-Shot) */}
+                    {msg.isTicketPrompt && activeTicket && (
+                      <div
+                        data-testid="chat-prompt-box"
+                        style={{
+                          position: "relative",
+                          marginTop: "var(--s-4)",
+                          padding: "var(--s-4)",
+                          background: "var(--paper-ground)",
+                          borderRadius: "var(--r-card)",
+                          border: activeTicket.status === "spent" ? "1px solid var(--rule)" : "1.5px solid var(--action)",
+                        }}
+                      >
+                        {/* Spent Stamp */}
+                        {activeTicket.status === "spent" && (
+                          <div
+                            data-testid="chat-spent-stamp"
+                            style={{
+                              position: "absolute",
+                              top: "12px",
+                              right: "12px",
+                              transform: "rotate(-6deg)",
+                              padding: "3px 10px",
+                              borderRadius: "var(--r-cell)",
+                              border: "2px dashed var(--v-code)",
+                              color: "var(--v-code)",
+                              background: "var(--v-code-bg)",
+                              fontFamily: "var(--font-mono)",
+                              fontWeight: 800,
+                              fontSize: "11px",
+                              letterSpacing: "0.05em",
+                              pointerEvents: "none",
+                            }}
+                          >
+                            {i18n.ticket.spentStamp}
+                          </div>
+                        )}
+
+                        <div style={{ fontSize: "11px", fontFamily: "var(--font-mono)", color: "var(--action)", fontWeight: 700, textTransform: "uppercase" }}>
+                          {i18n.ticket.title} · ĐÚNG 1 LẦN
+                        </div>
+                        <div style={{ fontSize: "14px", fontWeight: 600, color: "var(--ink)", margin: "4px 0 var(--s-3)" }}>
+                          {activeTicket.promptText}
+                        </div>
+
+                        {activeTicket.status === "spent" ? (
+                          <div style={{ fontSize: "12px", fontFamily: "var(--font-mono)", color: "var(--ink)" }}>
+                            <strong>Phản hồi đã lưu:</strong>{" "}
+                            {activeTicket.isUncertain
+                              ? "Không xác định được (UNCERTAIN)"
+                              : typeof activeTicket.answer === "boolean"
+                                ? activeTicket.answer
+                                  ? "Chấp nhận (ACCEPT)"
+                                  : "Không chấp nhận (REJECT)"
+                                : JSON.stringify(activeTicket.answer)}
+                            <div style={{ fontSize: "10px", color: "var(--ink-soft)", marginTop: "2px" }}>
+                              Trạng thái: Đã khóa vĩnh viễn (Single-Shot Invariant).
+                            </div>
+                          </div>
+                        ) : (
+                          <div>
+                            {activeTicket.questionType === "acceptability" ? (
+                              <div style={{ display: "flex", gap: "var(--s-2)", flexWrap: "wrap" }}>
+                                <button
+                                  type="button"
+                                  disabled={isSubmittingAnswer}
+                                  onClick={() => handleAnswerTicket(true)}
+                                  data-testid="chat-ticket-accept-btn"
+                                  style={{
+                                    padding: "6px 14px",
+                                    borderRadius: "var(--r-cell)",
+                                    border: "1px solid var(--v-acc)",
+                                    background: "var(--v-acc-bg)",
+                                    color: "var(--v-acc)",
+                                    fontSize: "12px",
+                                    fontFamily: "var(--font-mono)",
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  ✓ [1] Chấp nhận
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isSubmittingAnswer}
+                                  onClick={() => handleAnswerTicket(false)}
+                                  data-testid="chat-ticket-reject-btn"
+                                  style={{
+                                    padding: "6px 14px",
+                                    borderRadius: "var(--r-cell)",
+                                    border: "1px solid var(--v-code)",
+                                    background: "var(--v-code-bg)",
+                                    color: "var(--v-code)",
+                                    fontSize: "12px",
+                                    fontFamily: "var(--font-mono)",
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  ✕ [2] Không chấp nhận
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isSubmittingAnswer}
+                                  onClick={handleUncertain}
+                                  data-testid="chat-ticket-uncertain-btn"
+                                  style={{
+                                    padding: "6px 12px",
+                                    borderRadius: "var(--r-cell)",
+                                    border: "1px dashed var(--rule)",
+                                    background: "transparent",
+                                    color: "var(--ink-soft)",
+                                    fontSize: "12px",
+                                    fontFamily: "var(--font-mono)",
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  ? [C] Không xác định
+                                </button>
+                              </div>
+                            ) : (
+                              <form
+                                onSubmit={(e) => {
+                                  e.preventDefault();
+                                  if (!promptInputValue.trim()) return;
+                                  handleAnswerTicket(promptInputValue);
+                                }}
+                              >
+                                <div style={{ display: "flex", gap: "var(--s-2)" }}>
+                                  <input
+                                    type="text"
+                                    value={promptInputValue}
+                                    onChange={(e) => setPromptInputValue(e.target.value)}
+                                    placeholder='Nhập giá trị mong muốn e(w), ví dụ: 42 hoặc [1, 2]'
+                                    disabled={isSubmittingAnswer}
+                                    style={{
+                                      flex: 1,
+                                      padding: "6px 10px",
+                                      borderRadius: "var(--r-cell)",
+                                      border: "1px solid var(--rule)",
+                                      background: "var(--paper-surface)",
+                                      color: "var(--ink)",
+                                      fontSize: "12px",
+                                      fontFamily: "var(--font-mono)",
+                                      outline: "none",
+                                    }}
+                                  />
+                                  <button
+                                    type="submit"
+                                    disabled={isSubmittingAnswer || !promptInputValue.trim()}
+                                    style={{
+                                      padding: "6px 14px",
+                                      borderRadius: "var(--r-cell)",
+                                      border: "none",
+                                      background: "var(--action)",
+                                      color: "var(--paper-surface)",
+                                      fontSize: "12px",
+                                      fontFamily: "var(--font-mono)",
+                                      fontWeight: 600,
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    Gửi câu trả lời
+                                  </button>
+                                </div>
+                              </form>
+                            )}
+
+                            {submissionError && (
+                              <div style={{ marginTop: "4px", fontSize: "11px", color: "var(--v-code)", fontFamily: "var(--font-mono)" }}>
+                                {submissionError}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
+              );
+            })}
 
-                {/* Initial Decision Summary */}
-                <div
-                  style={{
-                    borderTop: "1px solid var(--rule)",
-                    paddingTop: "var(--s-3)",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <div>
-                    <div style={{ fontSize: "11px", color: "var(--ink-soft)", marginBottom: "4px" }}>
-                      Phán xử bước đầu:
-                    </div>
-                    <div style={{ fontSize: "13px", lineHeight: 1.5 }}>
-                      {activeCase.adjudication.explanation}
-                    </div>
-                  </div>
-                  <div style={{ marginLeft: "var(--s-4)" }}>
-                    <VerdictChip verdict={activeCase.adjudication.verdict} showFullLabel />
-                  </div>
-                </div>
-
-                {/* Inline link to inspect */}
-                <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                  <button
-                    type="button"
-                    onClick={() => setIsInspectorOpen(true)}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "var(--action)",
-                      fontSize: "12px",
-                      fontFamily: "var(--font-mono)",
-                      cursor: "pointer",
-                      padding: 0,
-                      textDecoration: "underline",
-                    }}
-                  >
-                    Xem bằng chứng & luật áp dụng →
-                  </button>
-                </div>
+            {/* Assistant typing indicator */}
+            {isTyping && (
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--ink-soft)", fontSize: "12px", fontFamily: "var(--font-mono)" }}>
+                <span>Dual-Oracle đang xử lý</span>
+                <span className="animate-pulse">● ● ●</span>
               </div>
+            )}
+
+            <div ref={messagesEndRef} />
+          </div>
+        </div>
+
+        {/* ─────────────────────────────────────────────────────────────
+            BOTTOM CHAT COMPOSER (Like ChatGPT / Claude)
+           ───────────────────────────────────────────────────────────── */}
+        <div
+          style={{
+            padding: "var(--s-3) var(--s-6) var(--s-4)",
+            background: "var(--paper-surface)",
+            borderTop: "1px solid var(--rule)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            flexShrink: 0,
+          }}
+        >
+          <div style={{ width: "100%", maxWidth: "760px" }}>
+            {/* Quick Action Suggestion Chips */}
+            <div style={{ display: "flex", gap: "6px", marginBottom: "var(--s-2)", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                onClick={() => handleSendMessage("Mô tả lại bài toán và phân tích lỗi")}
+                style={{
+                  fontSize: "11px",
+                  fontFamily: "var(--font-mono)",
+                  padding: "3px 10px",
+                  borderRadius: "var(--r-cell)",
+                  border: "1px solid var(--rule)",
+                  background: "var(--paper-ground)",
+                  color: "var(--ink)",
+                  cursor: "pointer",
+                }}
+              >
+                📝 Mô tả lại bài toán & lỗi
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSendMessage("Kiểm thử lại tác vụ với witness w")}
+                style={{
+                  fontSize: "11px",
+                  fontFamily: "var(--font-mono)",
+                  padding: "3px 10px",
+                  borderRadius: "var(--r-cell)",
+                  border: "1px solid var(--rule)",
+                  background: "var(--paper-ground)",
+                  color: "var(--ink)",
+                  cursor: "pointer",
+                }}
+              >
+                ▶ Kiểm thử witness w
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsInspectorOpen(true)}
+                style={{
+                  fontSize: "11px",
+                  fontFamily: "var(--font-mono)",
+                  padding: "3px 10px",
+                  borderRadius: "var(--r-cell)",
+                  border: "1px solid var(--rule)",
+                  background: "var(--paper-ground)",
+                  color: "var(--action)",
+                  cursor: "pointer",
+                }}
+              >
+                🔍 Mở Bảng phân tích chi tiết
+              </button>
             </div>
 
-            {/* ── Message 3: [Interaction - Khi UNKNOWN] In-stream Prompt Box ── */}
-            {activeTicket && (
-              <div
+            {/* Floating Chat Input Box */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSendMessage();
+              }}
+              style={{
+                position: "relative",
+                display: "flex",
+                alignItems: "center",
+                background: "var(--paper-ground)",
+                borderRadius: "var(--r-ticket)",
+                border: "1.5px solid var(--rule)",
+                padding: "6px 12px",
+                transition: "border-color var(--motion-quick) ease",
+              }}
+            >
+              <input
+                type="text"
+                data-testid="chat-composer-input"
+                value={composerInput}
+                onChange={(e) => setComposerInput(e.target.value)}
+                placeholder='Nhập câu hỏi, yêu cầu "Mô tả lại", hoặc nhập phản hồi kiểm thử...'
                 style={{
+                  flex: 1,
+                  border: "none",
+                  outline: "none",
+                  background: "transparent",
+                  color: "var(--ink)",
+                  fontSize: "13px",
+                  fontFamily: "var(--font-ui)",
+                  padding: "6px 8px",
+                }}
+              />
+
+              <button
+                type="submit"
+                data-testid="chat-composer-send-btn"
+                disabled={!composerInput.trim()}
+                aria-label="Gửi tin nhắn"
+                style={{
+                  width: "32px",
+                  height: "32px",
+                  borderRadius: "50%",
+                  border: "none",
+                  background: composerInput.trim() ? "var(--action)" : "var(--paper-surface)",
+                  color: composerInput.trim() ? "var(--paper-surface)" : "var(--ink-soft)",
                   display: "flex",
-                  flexDirection: "column",
-                  gap: "var(--s-1)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: composerInput.trim() ? "pointer" : "not-allowed",
+                  fontSize: "14px",
+                  fontWeight: 700,
+                  transition: "background var(--motion-quick) ease",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "var(--s-2)", fontSize: "11px", fontFamily: "var(--font-mono)", color: "var(--ink-soft)" }}>
-                  <span style={{ fontWeight: 600, color: "var(--ink)" }}>Tương Tác Kiểm Định (Human-in-the-Loop)</span>
-                  <span>·</span>
-                  <span>Đúng 1 Lần (Single-Shot)</span>
-                </div>
+                ↑
+              </button>
+            </form>
 
-                <div
-                  data-testid="chat-prompt-box"
-                  style={{
-                    position: "relative",
-                    background: "var(--paper-surface)",
-                    border: activeTicket.status === "spent" ? "1px solid var(--rule)" : "1.5px solid var(--action)",
-                    borderRadius: "var(--r-card)",
-                    padding: "var(--s-5)",
-                    overflow: "hidden",
-                  }}
-                >
-                  {/* Spent Stamp Overlay */}
-                  {activeTicket.status === "spent" && (
-                    <div
-                      data-testid="chat-spent-stamp"
-                      style={{
-                        position: "absolute",
-                        top: "16px",
-                        right: "16px",
-                        transform: "rotate(-6deg)",
-                        padding: "4px 12px",
-                        borderRadius: "var(--r-cell)",
-                        border: "2px dashed var(--v-code)",
-                        color: "var(--v-code)",
-                        background: "var(--v-code-bg)",
-                        fontFamily: "var(--font-mono)",
-                        fontWeight: 800,
-                        fontSize: "12px",
-                        letterSpacing: "0.06em",
-                        pointerEvents: "none",
-                      }}
-                    >
-                      {i18n.ticket.spentStamp}
-                    </div>
-                  )}
-
-                  <div style={{ marginBottom: "var(--s-3)" }}>
-                    <div
-                      style={{
-                        fontSize: "11px",
-                        fontFamily: "var(--font-mono)",
-                        color: activeTicket.status === "spent" ? "var(--ink-soft)" : "var(--action)",
-                        fontWeight: 600,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.04em",
-                      }}
-                    >
-                      {i18n.ticket.title} · {activeTicket.id}
-                    </div>
-                    <h3
-                      style={{
-                        margin: "var(--s-1) 0 0",
-                        fontSize: "15px",
-                        fontWeight: 600,
-                        color: "var(--ink)",
-                      }}
-                    >
-                      {activeTicket.promptText}
-                    </h3>
-                  </div>
-
-                  {/* If spent: show recorded answer */}
-                  {activeTicket.status === "spent" ? (
-                    <div
-                      style={{
-                        padding: "var(--s-3)",
-                        background: "var(--paper-ground)",
-                        borderRadius: "var(--r-cell)",
-                        border: "1px solid var(--rule)",
-                        fontSize: "12px",
-                        fontFamily: "var(--font-mono)",
-                        color: "var(--ink)",
-                      }}
-                    >
-                      <strong>Phản hồi đã ghi nhận:</strong>{" "}
-                      {activeTicket.isUncertain
-                        ? "Không xác định được (UNCERTAIN)"
-                        : typeof activeTicket.answer === "boolean"
-                          ? activeTicket.answer
-                            ? "Chấp nhận (ACCEPT)"
-                            : "Không chấp nhận (REJECT)"
-                          : JSON.stringify(activeTicket.answer)}
-                      <div style={{ fontSize: "11px", color: "var(--ink-soft)", marginTop: "4px" }}>
-                        Thời điểm: {activeTicket.answeredAt ?? "Đã lưu"} · Trạng thái vé: Đã khóa vĩnh viễn (single-shot invariant).
-                      </div>
-                    </div>
-                  ) : (
-                    /* Active form options */
-                    <div>
-                      {activeTicket.questionType === "acceptability" ? (
-                        <div style={{ display: "flex", gap: "var(--s-2)", flexWrap: "wrap", marginTop: "var(--s-3)" }}>
-                          <button
-                            type="button"
-                            disabled={isSubmittingAnswer}
-                            onClick={() => handleAnswerTicket(true)}
-                            data-testid="chat-ticket-accept-btn"
-                            style={{
-                              padding: "8px 16px",
-                              borderRadius: "var(--r-cell)",
-                              border: "1px solid var(--v-acc)",
-                              background: "var(--v-acc-bg)",
-                              color: "var(--v-acc)",
-                              fontSize: "12px",
-                              fontFamily: "var(--font-mono)",
-                              fontWeight: 600,
-                              cursor: "pointer",
-                            }}
-                          >
-                            ✓ [1] Chấp nhận đầu ra này
-                          </button>
-
-                          <button
-                            type="button"
-                            disabled={isSubmittingAnswer}
-                            onClick={() => handleAnswerTicket(false)}
-                            data-testid="chat-ticket-reject-btn"
-                            style={{
-                              padding: "8px 16px",
-                              borderRadius: "var(--r-cell)",
-                              border: "1px solid var(--v-code)",
-                              background: "var(--v-code-bg)",
-                              color: "var(--v-code)",
-                              fontSize: "12px",
-                              fontFamily: "var(--font-mono)",
-                              fontWeight: 600,
-                              cursor: "pointer",
-                            }}
-                          >
-                            ✕ [2] Không chấp nhận
-                          </button>
-
-                          <button
-                            type="button"
-                            disabled={isSubmittingAnswer}
-                            onClick={handleUncertain}
-                            data-testid="chat-ticket-uncertain-btn"
-                            style={{
-                              padding: "8px 16px",
-                              borderRadius: "var(--r-cell)",
-                              border: "1px dashed var(--rule)",
-                              background: "transparent",
-                              color: "var(--ink-soft)",
-                              fontSize: "12px",
-                              fontFamily: "var(--font-mono)",
-                              cursor: "pointer",
-                            }}
-                          >
-                            ? [C] Không xác định được
-                          </button>
-                        </div>
-                      ) : (
-                        <form
-                          onSubmit={(e) => {
-                            e.preventDefault();
-                            if (!promptInputValue.trim()) return;
-                            handleAnswerTicket(promptInputValue);
-                          }}
-                          style={{ marginTop: "var(--s-3)" }}
-                        >
-                          <div style={{ display: "flex", gap: "var(--s-2)" }}>
-                            <input
-                              type="text"
-                              value={promptInputValue}
-                              onChange={(e) => setPromptInputValue(e.target.value)}
-                              placeholder='Nhập đầu ra đúng, ví dụ: 42 hoặc [1, 2]'
-                              disabled={isSubmittingAnswer}
-                              style={{
-                                flex: 1,
-                                padding: "8px 12px",
-                                borderRadius: "var(--r-cell)",
-                                border: "1px solid var(--rule)",
-                                background: "var(--paper-ground)",
-                                color: "var(--ink)",
-                                fontSize: "12px",
-                                fontFamily: "var(--font-mono)",
-                                outline: "none",
-                              }}
-                            />
-                            <button
-                              type="submit"
-                              disabled={isSubmittingAnswer || !promptInputValue.trim()}
-                              style={{
-                                padding: "8px 16px",
-                                borderRadius: "var(--r-cell)",
-                                border: "none",
-                                background: "var(--action)",
-                                color: "var(--paper-surface)",
-                                fontSize: "12px",
-                                fontFamily: "var(--font-mono)",
-                                fontWeight: 600,
-                                cursor: "pointer",
-                              }}
-                            >
-                              Gửi câu trả lời
-                            </button>
-                            <button
-                              type="button"
-                              onClick={handleUncertain}
-                              disabled={isSubmittingAnswer}
-                              style={{
-                                padding: "8px 12px",
-                                borderRadius: "var(--r-cell)",
-                                border: "1px dashed var(--rule)",
-                                background: "transparent",
-                                color: "var(--ink-soft)",
-                                fontSize: "12px",
-                                fontFamily: "var(--font-mono)",
-                                cursor: "pointer",
-                              }}
-                            >
-                              Không chắc chắn
-                            </button>
-                          </div>
-                        </form>
-                      )}
-
-                      {submissionError && (
-                        <div style={{ marginTop: "var(--s-2)", fontSize: "11px", color: "var(--v-code)", fontFamily: "var(--font-mono)" }}>
-                          {submissionError}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* ── Message 4: [Post-Interaction Resolution] Final Adjudication Output ── */}
-            {activeTicket?.status === "spent" && (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "var(--s-1)",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: "var(--s-2)", fontSize: "11px", fontFamily: "var(--font-mono)", color: "var(--ink-soft)" }}>
-                  <span style={{ fontWeight: 600, color: "var(--v-acc)" }}>Phán Xử Cuối Cùng (Adjudication Resolved)</span>
-                  <span>·</span>
-                  <span>Chu trình hoàn tất</span>
-                </div>
-
-                <div
-                  style={{
-                    background: "var(--paper-surface)",
-                    border: "1.5px solid var(--v-acc)",
-                    borderRadius: "var(--r-card)",
-                    padding: "var(--s-4)",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <div>
-                    <div style={{ fontSize: "11px", color: "var(--ink-soft)", marginBottom: "4px" }}>
-                      Tích hợp bằng chứng người dùng:
-                    </div>
-                    <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--ink)" }}>
-                      Đã bổ sung câu trả lời vào tập bằng chứng Grounded (G). Phán xử tất định hoàn tất.
-                    </div>
-                  </div>
-                  <div>
-                    <VerdictChip verdict={finalVerdict} showFullLabel />
-                  </div>
-                </div>
-              </div>
-            )}
+            <div
+              style={{
+                marginTop: "6px",
+                fontSize: "10px",
+                fontFamily: "var(--font-mono)",
+                color: "var(--ink-soft)",
+                textAlign: "center",
+              }}
+            >
+              Dual-Oracle Monitoring v1.4 · Fail-Closed Invariant · Single-Shot Human Query Protected
+            </div>
           </div>
         </div>
       </main>
@@ -1033,7 +1242,7 @@ export function ChatTestbed({
         <aside
           data-testid="inspection-drawer"
           style={{
-            width: "440px",
+            width: "420px",
             height: "100%",
             background: "var(--paper-surface)",
             borderLeft: "1px solid var(--rule)",

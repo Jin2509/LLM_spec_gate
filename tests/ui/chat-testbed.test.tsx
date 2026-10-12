@@ -86,4 +86,49 @@ describe("ChatTestbed LLM-Style Interaction Testbed", () => {
     fireEvent.click(screen.getByText("Repair & Gate (G1–G5)"));
     expect(screen.getByText("5 Chốt Kiểm Fail-Closed Gate (G1–G5)")).toBeDefined();
   });
+
+  it("supports bottom chat composer to send messages and receive assistant responses", async () => {
+    render(<ChatTestbed initialCaseId="case_spec_fault" />);
+
+    // Bottom composer input exists
+    const input = screen.getByTestId("chat-composer-input") as HTMLInputElement;
+    const sendBtn = screen.getByTestId("chat-composer-send-btn") as HTMLButtonElement;
+    expect(input).toBeDefined();
+    expect(sendBtn.disabled).toBe(true);
+
+    // Type a re-description question
+    fireEvent.change(input, { target: { value: "Mô tả lại bài toán và phân tích lỗi" } });
+    expect(sendBtn.disabled).toBe(false);
+
+    // Submit message
+    fireEvent.click(sendBtn);
+
+    // User message should appear in chat
+    expect(screen.getByText("Mô tả lại bài toán và phân tích lỗi")).toBeDefined();
+
+    // Assistant response arrives with task description
+    await waitFor(
+      () => {
+        expect(screen.getByText(/Mô Tả Tác Vụ:/)).toBeDefined();
+      },
+      { timeout: 2000 }
+    );
+  });
+
+  it("toggles technical details view inside message stream", () => {
+    render(<ChatTestbed initialCaseId="case_spec_fault" />);
+
+    // Collapsible button exists
+    const toggleBtn = screen.getByText(/Hiện chi tiết kỹ thuật/);
+    expect(toggleBtn).toBeDefined();
+
+    // Click to show details
+    fireEvent.click(toggleBtn);
+    expect(screen.getByText(/Ẩn chi tiết kỹ thuật/)).toBeDefined();
+    expect(screen.getByText(/Mệnh đề kiểm tra:/)).toBeDefined();
+
+    // Click to hide details
+    fireEvent.click(screen.getByText(/Ẩn chi tiết kỹ thuật/));
+    expect(screen.getByText(/Hiện chi tiết kỹ thuật/)).toBeDefined();
+  });
 });
