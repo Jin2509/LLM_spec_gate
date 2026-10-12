@@ -52,6 +52,26 @@ export type GateChecks = z.infer<typeof GateChecksSchema>;
 export type GuaranteeNature = z.infer<typeof GuaranteeNatureSchema>;
 export type GateResult = z.infer<typeof GateResultSchema>;
 
+export type StageId = 1 | 2 | 3 | 4 | 5 | 6;
+export type StageStatus =
+  | "idle"
+  | "pending"
+  | "running"
+  | "done"
+  | "skipped"
+  | "stale"
+  | "error"
+  | "cancelled";
+
+export interface StageInfo {
+  readonly id: StageId;
+  readonly name: string;
+  readonly status: StageStatus;
+  readonly summary?: string;
+  readonly engine?: string;
+  readonly errorReason?: string;
+}
+
 /**
  * Adjudication outcome produced by aggregate()
  */

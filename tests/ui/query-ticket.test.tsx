@@ -35,7 +35,7 @@ describe("QueryTicket Component", () => {
       fireEvent.click(submitBtn);
     });
 
-    expect(handleAnswer).toHaveBeenCalledWith("5");
+    expect(handleAnswer).toHaveBeenCalledWith(5);
   });
 
   it("calls onUncertain when 'Không xác định được' is clicked", async () => {
@@ -51,7 +51,7 @@ describe("QueryTicket Component", () => {
     );
 
     const uncertainBtn = screen.getByRole("button", {
-      name: "Không xác định được",
+      name: /Không xác định được/i,
     });
     await act(async () => {
       fireEvent.click(uncertainBtn);
