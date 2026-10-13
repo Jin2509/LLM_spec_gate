@@ -5,7 +5,6 @@
  * ┌─────────────────────────────────────────────────────────────────────────┐
  * │  RULE: No HEX color may appear in any .tsx / .ts component file.       │
  * │  All colors MUST reference a CSS variable defined in this file.         │
- * │  Enforcement: pnpm check runs grep-hex-violations.mjs                  │
  * └─────────────────────────────────────────────────────────────────────────┘
  *
  * Theme activation:
@@ -18,59 +17,83 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 :root {
 
-  /* ── Surfaces & Ink ───────────────────────────────────────────────────── */
-  --paper-ground:  #EDF0F2;  /* Page background — cold paper */
-  --paper-surface: #F8F9FA;  /* Raised surface — cards, panels */
-  --ink:           #16212B;  /* Primary text — heavy ink */
-  --ink-soft:      #5B6A77;  /* Secondary text — muted annotation */
-  --rule:          #C5CDD5;  /* Dividers, borders, grid lines */
-  --action:        #2F4BC0;  /* Interactive elements, links, focus */
+  /* ── New semantic aliases (tool-feel polish) ──────────────────────────── */
+  --bg-app:      #EDF0F2;   /* App background */
+  --bg-panel:    #F8F9FA;   /* Panel / sidebar surface */
+  --bg-elevated: #FFFFFF;   /* Elevated cards */
+  --bg-hover:    #E8EBF0;   /* Hover state */
 
-  /* ── Verdict Colors (FIXED — never change between themes) ─────────────── */
-  /* ACC — Monitor & Spec agree: acceptable */
+  --border-subtle:  #DEE2E8;  /* Hairline separators */
+  --border-default: #C5CDD5;  /* Standard borders */
+
+  --text-primary:   #16212B;  /* Main content */
+  --text-secondary: #374957;  /* Subheadings */
+  --text-muted:     #5B6A77;  /* Captions, timestamps */
+
+  --accent:         #2F4BC0;  /* Single focus/selected accent */
+
+  /* Status: semantic only — drives verdict + state indicators */
+  --status-code:   #B83A2E;   /* CODE_FAULT */
+  --status-spec:   #B8780A;   /* SPEC_FAULT */
+  --status-ok:     #1F7A52;   /* ACC */
+  --status-und:    #5B6A77;   /* UNKNOWN_* */
+
+  /* Radius system */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  /* Font stacks */
+  --font-sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* ── Legacy aliases (kept for backward compat with existing components) ── */
+  --paper-ground:  var(--bg-app);
+  --paper-surface: var(--bg-panel);
+  --ink:           var(--text-primary);
+  --ink-soft:      var(--text-muted);
+  --rule:          var(--border-default);
+  --action:        var(--accent);
+
+  /* ── Verdict Colors ───────────────────────────────────────────────────── */
   --v-acc:         #1F7A52;
   --v-acc-bg:      #EAF6EF;
 
-  /* SPEC_ONLY — Spec flagged, monitor did not */
   --v-spec:        #B8780A;
   --v-spec-bg:     #FEF5E6;
 
-  /* CODE_ONLY — Monitor flagged, spec did not */
   --v-code:        #B83A2E;
   --v-code-bg:     #FDECEA;
 
-  /* DUAL — Both monitor and spec flagged */
   --v-dual:        #6B3A94;
   --v-dual-bg:     #F3ECFB;
 
-  /* UNKNOWN — Verdict deferred; MUST use dashed border, never solid fill */
   --v-unknown:     #5B6A77;
-  --v-unknown-bg:  transparent;  /* ← enforced: no background fill */
+  --v-unknown-bg:  transparent;
 
-  /* NEUTRAL — No verdict (e.g., placeholder, loading) */
   --v-neutral:     #8A97A3;
   --v-neutral-bg:  #F0F2F4;
 
-  /* ── Border radius hierarchy ──────────────────────────────────────────── */
-  --r-cell:   2px;   /* Chips, inline badges, table cells */
-  --r-card:   6px;   /* Cards, panels, containers */
-  --r-ticket: 12px;  /* Human query tickets, modal drawers */
+  /* ── Legacy radius aliases ────────────────────────────────────────────── */
+  --r-cell:   var(--radius-sm);
+  --r-card:   var(--radius-md);
+  --r-ticket: 12px;
 
   /* ── 4-px spacing grid ────────────────────────────────────────────────── */
   --s-1:   4px;
   --s-2:   8px;
   --s-3:  12px;
   --s-4:  16px;
+  --s-5:  20px;
   --s-6:  24px;
   --s-10: 40px;
 
   /* ── Motion ───────────────────────────────────────────────────────────── */
-  --motion-quick:  140ms;  /* Micro-interactions: hover, chip state change */
-  --motion-settle: 320ms;  /* Panel transitions, theme switch */
+  --motion-quick:  140ms;
+  --motion-settle: 320ms;
 
-  /* ── Typography (native & system font fallbacks) ─────────────────────── */
-  --font-ui:   'Schibsted Grotesk', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  /* ── Font aliases ─────────────────────────────────────────────────────── */
+  --font-ui:   var(--font-sans);
 
   /* ── UNKNOWN dashed border shorthand ─────────────────────────────────── */
   --border-unknown: 1.5px dashed var(--v-unknown);
@@ -85,19 +108,29 @@
 
 /* ═══════════════════════════════════════════════════════════════════════════
    DARK THEME
-   Activated by: document.documentElement.dataset.theme = 'dark'
    ═══════════════════════════════════════════════════════════════════════════ */
 :root[data-theme="dark"] {
 
-  /* ── Surfaces & Ink ───────────────────────────────────────────────────── */
-  --paper-ground:  #0F161C;
-  --paper-surface: #17212A;
-  --ink:           #E3E9EE;
-  --ink-soft:      #9AA8B4;
-  --rule:          #2B3944;
-  --action:        #7F95FF;
+  --bg-app:      #0F161C;
+  --bg-panel:    #17212A;
+  --bg-elevated: #1E2C38;
+  --bg-hover:    #1C2D3A;
 
-  /* ── Verdict Colors (dark variants) ──────────────────────────────────── */
+  --border-subtle:  #222E3A;
+  --border-default: #2B3944;
+
+  --text-primary:   #E3E9EE;
+  --text-secondary: #BAC8D4;
+  --text-muted:     #9AA8B4;
+
+  --accent:         #7F95FF;
+
+  --status-code:   #F0766A;
+  --status-spec:   #E6A23C;
+  --status-ok:     #4CC38A;
+  --status-und:    #9AA8B4;
+
+  /* Verdict Colors (dark) */
   --v-acc:         #4CC38A;
   --v-acc-bg:      #0D2A1A;
 
@@ -111,12 +144,12 @@
   --v-dual-bg:     #1E0E30;
 
   --v-unknown:     #9AA8B4;
-  --v-unknown-bg:  transparent;  /* Always transparent — dashed border only */
+  --v-unknown-bg:  transparent;
 
   --v-neutral:     #7A8895;
   --v-neutral-bg:  #1C2830;
 
-  /* ── State colors ─────────────────────────────────────────────────────── */
+  /* State colors */
   --state-stale:   #C4A93A;
   --state-pending: #5A9FE0;
   --state-running: #A875D8;
