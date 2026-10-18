@@ -50,3 +50,59 @@ code, pre, kbd, samp {
 :root {
   color-scheme: light dark;
 }
+
+/* Research testbed shell */
+.chat-shell { --chat-bg:#fafaf9; --chat-panel:#fff; --chat-ink:#18181b; --chat-muted:#626269; --chat-line:#dededb; --chat-accent:#166534; display:flex; min-height:100dvh; background:var(--chat-bg); color:var(--chat-ink); font:14px/1.6 var(--font-ui),Arial,sans-serif; }
+.session-sidebar { width:240px; flex:none; display:flex; flex-direction:column; padding:16px 12px; border-right:1px solid var(--chat-line); background:var(--chat-panel); }
+.brand-row { display:flex; align-items:center; gap:9px; padding:2px 8px 18px; font-size:13px; }
+.brand-mark { width:12px; height:12px; border:1.5px solid var(--chat-accent); display:inline-block; }
+.new-session,.primary-button { border:1px solid var(--chat-accent); border-radius:6px; background:var(--chat-accent); color:#fff; padding:7px 12px; font:inherit; cursor:pointer; }
+.new-session { width:100%; text-align:left; }
+.primary-button:disabled { opacity:.5; cursor:not-allowed; }
+.history-title,.message-role { color:var(--chat-muted); font-size:10px; letter-spacing:.07em; font-weight:650; }
+.history-title { padding:22px 8px 8px; }
+.history-list { overflow:auto; }
+.history-item { padding:7px 8px; border-bottom:1px solid var(--chat-line); color:var(--chat-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.text-button { color:inherit; border:1px solid transparent; border-radius:5px; background:transparent; padding:5px 8px; font:inherit; cursor:pointer; }
+.text-button:hover { background:color-mix(in srgb,var(--chat-ink) 6%,transparent); }
+.text-button:focus-visible,.primary-button:focus-visible,.new-session:focus-visible,textarea:focus-visible,select:focus-visible { outline:2px solid var(--chat-accent); outline-offset:2px; }
+.clear-history { margin-top:auto; color:var(--chat-muted); text-align:left; }
+.chat-main { display:flex; min-width:0; flex:1; flex-direction:column; height:100dvh; }
+.session-bar { min-height:62px; padding:10px 20px; display:flex; align-items:center; justify-content:space-between; gap:12px; border-bottom:1px solid var(--chat-line); background:var(--chat-panel); }
+.session-meta,.session-actions { display:flex; align-items:center; gap:10px; }
+.session-meta { color:var(--chat-muted); font-size:11px; margin-top:2px; }
+.dataset-badge { white-space:nowrap; border:1px solid var(--chat-line); border-radius:5px; padding:1px 6px; font-size:10px; }
+.mono,.message-verdict { font-family:var(--font-mono),monospace; font-variant-numeric:tabular-nums; }
+.workspace { display:flex; min-height:0; flex:1; }
+.conversation { display:flex; min-width:0; flex:1; flex-direction:column; overflow:auto; padding:0 clamp(18px,5vw,72px); }
+.turn-status { display:flex; justify-content:space-between; gap:12px; padding:14px 0; border-bottom:1px solid var(--chat-line); color:var(--chat-muted); font-size:11px; }
+.message-block { padding:18px 0; border-bottom:1px solid var(--chat-line); }
+.message-content { white-space:pre-wrap; overflow-wrap:anywhere; margin-top:6px; }
+.message-verdict { margin-top:8px; padding-left:10px; border-left:2px solid var(--chat-accent); font-size:12px; }
+.empty-state { margin:auto; max-width:650px; text-align:center; padding:40px 12px; color:var(--chat-muted); }
+.example-list { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-top:14px; }
+.example-button { border:1px solid var(--chat-line); border-radius:6px; text-align:left; }
+.composer-wrap { position:sticky; bottom:0; padding:12px 0 10px; background:var(--chat-bg); margin-top:auto; }
+.composer-box { display:flex; align-items:flex-end; gap:8px; border:1px solid var(--chat-line); border-radius:7px; padding:8px; background:var(--chat-panel); }
+.composer-box textarea { resize:vertical; min-height:48px; max-height:180px; flex:1; border:0; outline:none; background:transparent; color:inherit; font:inherit; }
+.composer-hint,.muted,.small { color:var(--chat-muted); font-size:11px; }
+.composer-hint { padding:4px 2px 0; }
+.verdict-panel { width:280px; flex:none; border-left:1px solid var(--chat-line); padding:16px; background:var(--chat-panel); }
+.panel-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; border-bottom:1px solid var(--chat-line); padding-bottom:10px; }
+.panel-heading h2 { margin:0; font-size:14px; }
+.panel-field { display:flex; flex-direction:column; gap:3px; padding:12px 0; border-bottom:1px solid var(--chat-line); }
+.panel-field>span { color:var(--chat-muted); font-size:11px; }
+.panel-field strong { font-size:12px; font-weight:500; overflow-wrap:anywhere; }
+.panel-actions { display:flex; flex-wrap:wrap; gap:4px; margin-top:12px; }
+.neutral-note,.locked-note,.error-box { padding:10px 12px; margin:12px 0; border:1px solid var(--chat-line); border-left:2px solid var(--chat-accent); }
+.error-box { border-left-color:#b42318; }
+.loading-line { padding:12px 0; color:var(--chat-muted); }
+.drawer-backdrop { position:fixed; inset:0; z-index:50; display:flex; justify-content:flex-end; background:rgb(0 0 0 / 28%); }
+.advanced-drawer { width:min(380px,92vw); height:100%; padding:20px; background:var(--chat-panel); border-left:1px solid var(--chat-line); }
+.field-label { display:block; margin:24px 0 6px; font-size:12px; }
+.advanced-drawer select { width:100%; padding:8px; color:inherit; background:var(--chat-bg); border:1px solid var(--chat-line); border-radius:6px; }
+.warning-note { padding:10px; border-left:2px solid var(--chat-accent); color:var(--chat-muted); }
+@media (prefers-color-scheme:dark) { .chat-shell { --chat-bg:#0e0e10; --chat-panel:#141416; --chat-ink:#ededed; --chat-muted:#b0b0b6; --chat-line:#343438; --chat-accent:#4ade80; } .primary-button { color:#07140c; } }
+@media (max-width:1023px) { .workspace.with-panel { flex-direction:column; overflow:auto; } .conversation { overflow:visible; min-height:60vh; } .verdict-panel { width:100%; border-left:0; border-top:1px solid var(--chat-line); } }
+@media (max-width:700px) { .session-sidebar { width:145px; padding:10px 8px; } .session-bar { align-items:flex-start; padding:10px; } .session-actions { gap:2px; flex-wrap:wrap; justify-content:flex-end; } .session-meta { flex-direction:column; align-items:flex-start; gap:2px; } .conversation { padding:0 14px; } .turn-status { flex-direction:column; gap:2px; } }
+@media (prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto !important; transition:none !important; animation:none !important; } }
