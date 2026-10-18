@@ -1,7 +1,5 @@
-export const DEFAULT_DATASET = "humaneval";
+export const DEFAULT_DATASET = "evalplus_illustrative";
 
 export const DATASETS = [
-  { id: "humaneval", name: "HumanEval+", version: "EvalPlus v0.2" },
-  { id: "mbpp", name: "MBPP+", version: "Sanitized" },
-  { id: "evalplus_demo", name: "EvalPlus Illustrative", version: "Demo" },
+  { id: "evalplus_illustrative", name: "EvalPlus Tập Minh Họa", version: "12 bài · mock" },
 ] as const;

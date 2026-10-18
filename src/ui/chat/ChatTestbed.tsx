@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useReducer, useState } from "react";
+import Link from "next/link";
 import type { CaseDossier, Verdict } from "@/core/types";
 import { SAMPLE_CASES } from "@/mock/fixtures/sample-cases";
 import { ACADEMIC_TASKS } from "@/mock/fixtures/academic-tasks";
@@ -52,7 +53,7 @@ export function MessageBlock({ turn }: { turn: Turn }) {
 
 export function Composer({ value, onChange, onSend, disabled, examples }: { value: string; onChange: (v: string) => void; onSend: () => void; disabled: boolean; examples?: string[] }) {
   return <div className="composer-wrap">
-    {examples?.length ? <div className="example-list">{examples.map((example) => <button key={example} className="text-button example-button" onClick={() => onChange(example)}>{example}</button>)}</div> : null}
+    {examples?.length ? <div className="example-list">{examples.map((example, index) => <button key={`example-${index}`} className="text-button example-button" onClick={() => onChange(example)}>{example}</button>)}</div> : null}
     <div className="composer-box">
       <textarea aria-label={i18n.chat.inputLabel} value={value} disabled={disabled} rows={2} placeholder={disabled ? i18n.chat.locked : i18n.chat.placeholder} onChange={(e) => onChange(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); onSend(); } }} />
       <button className="primary-button" onClick={onSend} disabled={disabled || !value.trim()} aria-label={i18n.chat.send}>{i18n.chat.send}</button>
@@ -83,8 +84,22 @@ export function AdvancedDrawer({ open, dataset, onDataset, onClose }: { open: bo
   </section></div>;
 }
 
-export function SessionBar({ dataset, runId, finished, onAdvanced, onNew, onShowResult, showResult }: { dataset: string; runId: string; finished: boolean; onAdvanced: () => void; onNew: () => void; onShowResult: () => void; showResult: boolean }) {
-  return <header className="session-bar"><div><strong>{i18n.chat.title}</strong><div className="session-meta"><DatasetBadge dataset={dataset} /><span className="mono">{runId}</span></div></div><div className="session-actions">{!showResult && <button className="text-button" onClick={onShowResult}>{i18n.chat.showResult}</button>}<button className="text-button" onClick={onAdvanced}>{i18n.chat.advanced}</button>{finished && <button className="primary-button" onClick={onNew}>{i18n.chat.newSession}</button>}</div></header>;
+export function SessionBar({ dataset, runId, finished, activeStep, onAdvanced, onNew, onShowResult, showResult }: { dataset: string; runId: string; finished: boolean; activeStep: number; onAdvanced: () => void; onNew: () => void; onShowResult: () => void; showResult: boolean }) {
+  return <header className="session-bar"><div><strong>{i18n.chat.title}</strong><div className="session-meta"><DatasetBadge dataset={dataset} /><span className="mono">{runId}</span></div><ol className="flow-steps" aria-label={i18n.chat.flowLabel}>{i18n.chat.flowSteps.map((step, index) => <li key={`step-${index}`} aria-current={index + 1 === activeStep ? "step" : undefined}>{step}</li>)}</ol></div><nav className="session-actions"><Link className="text-button" href="/">{i18n.chat.navCheck}</Link><Link className="text-button" href="/history">{i18n.chat.navHistory}</Link><Link className="text-button" href="/stats">{i18n.chat.navStats}</Link>{!showResult && <button className="text-button" onClick={onShowResult}>{i18n.chat.showResult}</button>}<button className="text-button" onClick={onAdvanced}>{i18n.chat.advanced}</button>{finished && <button className="primary-button" onClick={onNew}>{i18n.chat.newSession}</button>}</nav></header>;
+}
+
+export function LiveLogPanel({ runId }: { runId?: string }) {
+  const [open, setOpen] = useState(false);
+  const [level, setLevel] = useState("all");
+  const [entries, setEntries] = useState<{ id: string; at: string; level: string; message: string }[]>([]);
+  useEffect(() => {
+    if (!runId) return;
+    const source = new EventSource(`/api/logs/stream?runId=${encodeURIComponent(runId)}`);
+    source.onmessage = (event) => { try { const row = JSON.parse(event.data); setEntries((previous) => previous.some((item) => item.id === row.id) ? previous : [...previous, row]); } catch { /* Ignore malformed log records. */ } };
+    return () => source.close();
+  }, [runId]);
+  const visible = entries.filter((entry) => level === "all" || entry.level === level);
+  return <section className="live-log"><div className="live-log-head"><strong>{i18n.chat.logs}</strong><button className="text-button" onClick={() => setOpen((v) => !v)}>{open ? i18n.chat.collapse : i18n.chat.expand}</button>{open && <><select aria-label={i18n.chat.logs} value={level} onChange={(e) => setLevel(e.target.value)}><option value="all">Tất cả mức</option><option value="info">{i18n.chat.logInfo}</option><option value="warn">{i18n.chat.logWarn}</option><option value="error">{i18n.chat.logError}</option></select><button className="text-button" onClick={() => void navigator.clipboard?.writeText(visible.map((e) => `${e.at} [${e.level}] ${e.message}`).join("\n"))}>{i18n.chat.copy}</button><button className="text-button" onClick={() => setEntries([])}>{i18n.chat.clear}</button></>}</div>{open && <div className="live-log-content" aria-live="polite">{visible.length ? visible.map((entry) => <div key={entry.id} className="mono">{entry.at} [{entry.level}] {entry.message}</div>) : <span>{i18n.chat.noLogs}</span>}</div>}</section>;
 }
 
 export interface ChatTestbedProps { initialCaseId?: string; runId?: string }
@@ -97,6 +112,7 @@ export function ChatShell({ initialCaseId = "case_spec_fault", runId = "run_eval
   const [history, setHistory] = useState<{ id: string; title: string }[]>([]);
   const [panelOpen, setPanelOpen] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [evaluationRunId, setEvaluationRunId] = useState<string>();
   const currentCase: CaseDossier = SAMPLE_CASES[caseId] ?? SAMPLE_CASES.case_spec_fault!;
   const stream = useDualOracleStream(runId);
   const latestResult = [...state.turns].reverse().find((turn) => turn.role === "system");
@@ -107,8 +123,9 @@ export function ChatShell({ initialCaseId = "case_spec_fault", runId = "run_eval
   useEffect(() => {
     if (!stream.isStreaming && stream.finalVerdict && state.phase === "asking") {
       dispatch({ type: "result", text: stream.streamedText || currentCase.adjudication.explanation, verdict: stream.finalVerdict, ms: stream.totalMs });
+      if (evaluationRunId) void fetch(`/api/runs/${evaluationRunId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ patch: { status: unknown(stream.finalVerdict) ? "answered" : "final" }, turn: { role: "system", content: stream.streamedText || currentCase.adjudication.explanation, verdict: stream.finalVerdict, latencyMs: stream.totalMs }, verdict: stream.finalVerdict, latency: { adjudication: stream.totalMs }, log: `Hoàn tất phân xử: ${stream.finalVerdict}` }) });
     }
-  }, [stream.isStreaming, stream.finalVerdict, stream.streamedText, stream.totalMs, state.phase, currentCase.adjudication.explanation]);
+  }, [stream.isStreaming, stream.finalVerdict, stream.streamedText, stream.totalMs, state.phase, currentCase.adjudication.explanation, evaluationRunId]);
 
   useEffect(() => {
     if (stream.error && !stream.isStreaming) dispatch({ type: "error", text: stream.error });
@@ -122,6 +139,7 @@ export function ChatShell({ initialCaseId = "case_spec_fault", runId = "run_eval
         if (!response.ok) throw new Error(i18n.chat.retryError);
         const verdict: Verdict = currentCase.adjudication.verdict === "UNKNOWN_EVIDENCE" ? "ACC" : "SPEC_FAULT";
         dispatch({ type: "resolved", text: `${i18n.chat.followupRecorded}\n\n${currentCase.adjudication.explanation}`, verdict });
+        if (evaluationRunId) void fetch(`/api/runs/${evaluationRunId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ patch: { status: "final" }, turn: { role: "system", content: currentCase.adjudication.explanation, verdict }, verdict, log: `Đã dùng lượt bổ sung; verdict cuối: ${verdict}` }) });
       } catch { dispatch({ type: "error", text: i18n.chat.retryError }); }
     } else {
       dispatch({ type: "retry" });
@@ -136,33 +154,44 @@ export function ChatShell({ initialCaseId = "case_spec_fault", runId = "run_eval
     if (canAskFollowup && currentCase.ticket) {
       dispatch({ type: "followup", text, id: `u-${Date.now()}` });
       try {
+        if (evaluationRunId) {
+          const savedFollowup = await fetch(`/api/runs/${evaluationRunId}/followup`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: text }) });
+          if (!savedFollowup.ok) throw new Error(i18n.chat.retryError);
+        }
         const response = await fetch(`/api/tickets/${currentCase.ticket.id}/answer`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ answer: text, durationMs: 0 }) });
         if (!response.ok) throw new Error(i18n.chat.retryError);
         const verdict: Verdict = currentCase.adjudication.verdict === "UNKNOWN_EVIDENCE" ? "ACC" : "SPEC_FAULT";
         dispatch({ type: "resolved", text: `${i18n.chat.followupRecorded}\n\n${currentCase.adjudication.explanation}`, verdict });
+        if (evaluationRunId) void fetch(`/api/runs/${evaluationRunId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ patch: { status: "final" }, turn: { role: "system", content: currentCase.adjudication.explanation, verdict }, verdict, log: `Đã dùng lượt bổ sung; verdict cuối: ${verdict}` }) });
       } catch { dispatch({ type: "error", text: i18n.chat.retryError }); }
       return;
     }
     dispatch({ type: "send", text, id: `u-${Date.now()}` });
     setHistory((prev) => [{ id: `${Date.now()}`, title: text.slice(0, 64) }, ...prev]);
+    try {
+      const saved = await fetch("/api/runs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: "evaluation", datasetId: dataset, datasetVersion: DATASETS[0].version, problemId: currentCase.taskId, problem: text }) });
+      if (saved.ok) { const data = await saved.json(); setEvaluationRunId(data.run.run_id); }
+    } catch { /* Existing evaluation stream remains available when persistence is offline. */ }
     stream.startStream(currentCase, text);
-  }, [input, stream, finished, canAskFollowup, currentCase]);
+  }, [input, stream, finished, canAskFollowup, currentCase, evaluationRunId, dataset]);
 
-  const newSession = () => { stream.stopStream(); dispatch({ type: "reset" }); setInput(""); setCaseId(Object.keys(SAMPLE_CASES)[(Object.keys(SAMPLE_CASES).indexOf(caseId) + 1) % Object.keys(SAMPLE_CASES).length] ?? initialCaseId); };
+  const newSession = () => { stream.stopStream(); dispatch({ type: "reset" }); setInput(""); setEvaluationRunId(undefined); setCaseId(Object.keys(SAMPLE_CASES)[(Object.keys(SAMPLE_CASES).indexOf(caseId) + 1) % Object.keys(SAMPLE_CASES).length] ?? initialCaseId); };
   const result = [...state.turns].reverse().find((turn) => turn.role === "system");
   const task = ACADEMIC_TASKS.find((entry) => entry.id === currentCase.taskId);
   return <div className="chat-shell">
     <aside className="session-sidebar"><div className="brand-row"><span className="brand-mark" aria-hidden="true" /> <strong>Adjudicator Lab</strong></div><button className="new-session" onClick={newSession}>{i18n.chat.newSession}</button><div className="history-title">{i18n.chat.recent}</div><div className="history-list">{history.length ? history.map((entry) => <div key={entry.id} className="history-item">{entry.title}</div>) : <p className="muted small">{i18n.chat.noHistory}</p>}</div><button className="text-button clear-history" onClick={() => setHistory([])}>{i18n.chat.clearHistory}</button></aside>
-    <main className="chat-main"><SessionBar dataset={dataset} runId={runId} finished={finished} onAdvanced={() => setDrawerOpen(true)} onNew={newSession} onShowResult={() => setPanelOpen(true)} showResult={panelOpen} />
+    <main className="chat-main"><SessionBar dataset={dataset} runId={runId} finished={finished} activeStep={state.phase === "idle" ? 1 : 3} onAdvanced={() => setDrawerOpen(true)} onNew={newSession} onShowResult={() => setPanelOpen(true)} showResult={panelOpen} />
       <div className={`workspace ${panelOpen ? "with-panel" : ""}`}><section className="conversation" aria-live="polite"><div className="turn-status"><span>{state.phase === "idle" ? i18n.chat.turnOne : canAskFollowup ? i18n.chat.followupLeft : state.followupUsed ? i18n.chat.followupUsed : i18n.chat.turnOne}</span><span>{task?.name ?? currentCase.taskId} · {currentCase.id}</span></div>
-        {!state.turns.length && <div className="empty-state"><p>{i18n.chat.emptyTitle}</p><div className="example-list">{i18n.chat.examples.map((example) => <button key={example} className="text-button example-button" onClick={() => setInput(example)}>{example}</button>)}</div></div>}
+        {state.phase === "idle" && <div className="agent-notice">{i18n.chat.backendLimitation}</div>}
+        {!state.turns.length && <div className="empty-state"><p>{i18n.chat.emptyTitle}</p><div className="example-list">{i18n.chat.examples.map((example, index) => <button key={`example-${index}`} className="text-button example-button" onClick={() => setInput(example)}>{example}</button>)}</div></div>}
         {state.turns.map((turn) => <MessageBlock key={turn.id} turn={turn} />)}
         {stream.isStreaming && <div className="loading-line" role="status">{i18n.chat.loading}</div>}
         {state.error && <div className="error-box" role="alert">{state.error}<button className="text-button" onClick={() => void retry()}>{i18n.chat.retry}</button></div>}
         {unknownResult && canAskFollowup && <div className="neutral-note">{i18n.chat.unknownNotice}</div>}
         {finished && <div className="locked-note">{i18n.chat.sessionFinished}</div>}
+        <LiveLogPanel key={evaluationRunId ?? "no-run"} runId={evaluationRunId} />
         <Composer value={input} onChange={setInput} onSend={() => void send()} disabled={stream.isStreaming || finished || (state.followupUsed && !finished)} examples={state.turns.length ? undefined : []} />
-      </section>{panelOpen && <VerdictPanel item={result} dataset={dataset} runId={runId} onClose={() => setPanelOpen(false)} />}</div>
+      </section>{panelOpen && <VerdictPanel item={result} dataset={dataset} runId={evaluationRunId ?? runId} onClose={() => setPanelOpen(false)} />}</div>
     </main><AdvancedDrawer open={drawerOpen} dataset={dataset} onDataset={setDataset} onClose={() => setDrawerOpen(false)} />
   </div>;
 }
