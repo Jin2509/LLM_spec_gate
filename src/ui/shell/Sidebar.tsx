@@ -21,6 +21,7 @@ const NAV_ITEMS: readonly NavItem[] = [
   { key: "revocation", href: "/revocation", icon: "🔄" },
   { key: "experiments", href: "/experiments", icon: "⚗️" },
   { key: "results", href: "/results", icon: "📊" },
+  { key: "pipeline", href: "/pipeline", icon: "🚀" },
   { key: "faultInjection", href: "/fault-injection", icon: "⚡" },
   { key: "settings", href: "/settings", icon: "⚙️" },
 ];

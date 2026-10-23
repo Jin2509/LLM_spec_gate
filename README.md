@@ -61,6 +61,16 @@ pnpm build
 pnpm start
 ```
 
+### 6. Nối với backend thật (spec_gate_backend)
+
+Mọi request tới `/api/backend/*` được proxy (rewrite trong `next.config.ts`) sang [spec_gate_backend](https://github.com/WhoKeng/spec_gate_backend), mặc định `http://localhost:8000`; đổi bằng biến môi trường `BACKEND_URL` (ví dụ trong `.env.local`). Các route `/api/*` khác vẫn là mock trong repo này.
+
+1. Chạy backend theo README của nó (có chế độ fixtures, không tốn API).
+2. `pnpm dev`, mở [http://localhost:3000/pipeline](http://localhost:3000/pipeline) (mục "Pipeline thật" ở sidebar).
+3. Bấm "Chạy pipeline": backend chạy `setup → admit → run` của ADOM, trang theo dõi sự kiện qua SSE.
+
+Code: `src/features/backend/` (type, reducer sự kiện, hook gọi backend), trang `src/app/pipeline/page.tsx`.
+
 ---
 
 ## 🛡️ Nguyên tắc An toàn Dữ liệu Khoa học
