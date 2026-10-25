@@ -13,7 +13,7 @@ export interface AppShellProps {
 export function AppShell({
   children,
   topbarProps,
-  currentRunId = "run_evalplus_01",
+  currentRunId,
 }: AppShellProps) {
   return (
     <div

@@ -1,23 +1,18 @@
 "use client";
 
+import { Scale, TriangleAlert } from "lucide-react";
 import React, { useState } from "react";
-import type { CaseDossier, GateResult } from "@/core/types";
-import {
-  type GatePolicy,
-  type PassMode,
-  type RankedRepairCandidate,
-  rankCandidates,
-  calculateComplexity,
-  calculateGuardBreadth,
-  isBOrBSynthEmptyInGuard,
-  evaluateGatePolicy,
-  determinePassMode,
-} from "@/core/repair";
+import type { CaseDossier } from "@/core/types";
+import { type GatePolicy, type PassMode, rankCandidates, evaluateGatePolicy, determinePassMode } from "@/core/repair";
 import { Button } from "@/ui/primitives/Button";
+import { api } from "@/lib/api/endpoints";
+import { errorMessage } from "@/lib/api/client";
+import type { RepairCandidateEvaluation } from "@/lib/api/types";
 
 export interface RepairGatePanelProps {
   caseDossier: CaseDossier;
-  initialCandidates?: RankedRepairCandidate[];
+  /** Ứng viên kèm kết quả Gate G1–G5 do backend đánh giá (GET .../repair-candidates). */
+  candidates: RepairCandidateEvaluation[];
   onDeploySuccess?: (result: {
     nextVersion: string;
     isShadow: boolean;
@@ -27,108 +22,44 @@ export interface RepairGatePanelProps {
 
 export function RepairGatePanel({
   caseDossier,
-  initialCandidates,
+  candidates,
   onDeploySuccess,
 }: RepairGatePanelProps) {
-  // Build initial candidates from case dossier
-  const rawCandidates: RankedRepairCandidate[] = initialCandidates ?? [
-    caseDossier.repairCandidate
-      ? {
-          ...caseDossier.repairCandidate,
-          complexity: calculateComplexity(caseDossier.repairCandidate),
-          breadth: calculateGuardBreadth(caseDossier.repairCandidate.guard),
-          passMode: "PASS_PROOF",
-          isProofVerified: true,
-          hasA2Anchor: true,
-        }
-      : {
-          id: "rep_fallback_01",
-          family: "case_exception",
-          guard: "len(w) == 4",
-          replacement: "ret[0] <= ret[2] and ret[1] == w[1]",
-          targetExpectedOutput: [2, 3, 5, 8],
-          rank: 1,
-          diffPreview: "sorted(w) -> (ret[0] <= ret[2])",
-          complexity: 42,
-          breadth: 5,
-          passMode: "PASS_PROOF",
-          isProofVerified: true,
-          hasA2Anchor: true,
-        },
-    {
-      id: "rep_point_02",
-      family: "point_patch",
-      guard: "w == [5, 3, 2, 8]",
-      replacement: "ret == [2, 3, 5, 8]",
-      targetExpectedOutput: [2, 3, 5, 8],
-      rank: 2,
-      diffPreview: "sorted(w) -> (ret == [2, 3, 5, 8])",
-      complexity: 38,
-      breadth: 3,
-      passMode: "PASS_SAMPLED",
-      isProofVerified: false,
-      hasA2Anchor: true,
-    },
-    {
-      id: "rep_broaden_03",
-      family: "broaden_bounds",
-      guard: "len(w) >= 2",
-      replacement: "all(ret[i] <= ret[i+2] for i in range(0, len(ret)-2, 2))",
-      targetExpectedOutput: [2, 3, 5, 8],
-      rank: 3,
-      diffPreview: "sorted(w) -> generalized even sort",
-      complexity: 75,
-      breadth: 20,
-      passMode: "PASS_NO_A2",
-      isProofVerified: false,
-      hasA2Anchor: false,
-    },
-  ];
+  const sortedCandidates = rankCandidates(candidates);
 
-  const sortedCandidates = rankCandidates(rawCandidates);
-
-  const [selectedCandidateId, setSelectedCandidateId] = useState<string>(
-    sortedCandidates[0]?.id ?? ""
-  );
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string>(sortedCandidates[0]?.id ?? "");
   const [policy, setPolicy] = useState<GatePolicy>("standard");
   const [isDeploying, setIsDeploying] = useState<boolean>(false);
   const [deployFeedback, setDeployFeedback] = useState<string | null>(null);
 
-  const selectedCandidate =
-    sortedCandidates.find((c) => c.id === selectedCandidateId) ?? sortedCandidates[0];
+  const selectedCandidate = sortedCandidates.find((c) => c.id === selectedCandidateId) ?? sortedCandidates[0];
 
-  // Evaluate gate for selected candidate
-  const currentGateResult: GateResult = caseDossier.gateResult ?? {
-    passed: true,
-    checks: {
-      g1_accept_grounded: true,
-      g2_reject_b: true,
-      g3_locality: true,
-      g4_preserve_g_a2: true,
-      g5_in_repair_space_and_bsynth: true,
-    },
-    guaranteeNature: selectedCandidate?.isProofVerified ? "proof" : "structural",
-    message: "Vượt qua Gate fail-closed.",
-  };
+  if (!selectedCandidate) {
+    return (
+      <div
+        data-testid="repair-gate-panel"
+        className="p-4 rounded border font-mono text-xs"
+        style={{ backgroundColor: "var(--paper-surface)", borderColor: "var(--rule)", borderRadius: "var(--r-card)", color: "var(--ink-soft)" }}
+      >
+        Backend chưa sinh ứng viên sửa đặc tả nào cho vụ việc {caseDossier.id}.
+      </div>
+    );
+  }
 
-  const passMode: PassMode | undefined = selectedCandidate
-    ? selectedCandidate.passMode ??
-      determinePassMode(currentGateResult, {
-        isProofVerified: selectedCandidate.isProofVerified,
-        hasA2Anchor: selectedCandidate.hasA2Anchor,
-      })
-    : undefined;
+  // Kết quả Gate G1–G5 do backend đánh giá cho ứng viên đang chọn (fail-closed, không giả định pass).
+  const currentGateResult = selectedCandidate.gateResult;
+
+  const passMode: PassMode | undefined =
+    selectedCandidate.passMode ??
+    determinePassMode(currentGateResult, {
+      isProofVerified: selectedCandidate.isProofVerified,
+      hasA2Anchor: selectedCandidate.hasA2Anchor,
+    });
 
   const policyDecision = evaluateGatePolicy(policy, currentGateResult, passMode);
 
-  // Check if B ∪ B_synth is empty in guard g
-  const isBEmptyInG = isBOrBSynthEmptyInGuard(
-    [
-      { input: [24, 18], inGuard: false },
-      { input: [1, 5, 11, 5], inGuard: false },
-    ],
-    [{ input: [1000000, -999999], inGuard: false }]
-  );
+  // B ∪ B_synth rỗng trong vùng guard g của ứng viên (backend tính trên kho bằng chứng thật)
+  const isBEmptyInG = selectedCandidate.isBEmptyInGuard;
 
   const handleDeploy = async () => {
     if (!policyDecision.canDeploy || !selectedCandidate) return;
@@ -136,18 +67,12 @@ export function RepairGatePanel({
     setIsDeploying(true);
     setDeployFeedback(null);
     try {
-      const res = await fetch(`/api/cases/${caseDossier.id}/repair/deploy`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          repairCandidate: selectedCandidate,
-          policy,
-          isProofVerified: selectedCandidate.isProofVerified,
-          hasA2Anchor: selectedCandidate.hasA2Anchor,
-        }),
+      const data = await api.cases.deployRepair(caseDossier.id, {
+        repairCandidate: selectedCandidate,
+        policy,
+        isProofVerified: selectedCandidate.isProofVerified,
+        hasA2Anchor: selectedCandidate.hasA2Anchor,
       });
-
-      const data = await res.json();
       if (data.success) {
         setDeployFeedback(
           policy === "shadow"
@@ -164,8 +89,8 @@ export function RepairGatePanel({
       } else {
         setDeployFeedback(`Triển khai thất bại: ${data.policyDecision?.reason ?? "Chính sách từ chối"}`);
       }
-    } catch {
-      setDeployFeedback("Lỗi kết nối khi gửi yêu cầu triển khai.");
+    } catch (error) {
+      setDeployFeedback(`Lỗi khi gửi yêu cầu triển khai: ${errorMessage(error, "lỗi kết nối")}`);
     } finally {
       setIsDeploying(false);
     }
@@ -230,7 +155,7 @@ export function RepairGatePanel({
             color: "var(--v-spec)",
           }}
         >
-          <span className="text-sm shrink-0">⚠️</span>
+          <TriangleAlert size={16} className="inline-block shrink-0 " aria-hidden="true" style={{ marginTop: 1 }} />
           <div>
             <strong>Cảnh báo Tiên đề:</strong> Tập <code>B ∪ B_synth</code> rỗng trong vùng điều kiện <code>g</code>.
             Nguy cơ bản vá rỗng (vacuous patch) hoặc chấp nhận ngầm các lỗi chưa được kiểm định!
@@ -445,7 +370,7 @@ export function RepairGatePanel({
         }}
       >
         <div className="flex items-center gap-2 font-bold" style={{ color: "var(--ink)" }}>
-          <span>⚖️</span>
+          <Scale size={14} className="inline-block shrink-0 align-[-2px]" aria-hidden="true" />
           <span>CÁC GIỚI HẠN KHÔNG ĐƯỢC BẢO ĐẢM (Unguaranteed Bounds)</span>
         </div>
         <p className="m-0 leading-relaxed text-[11px]" style={{ color: "var(--ink-soft)" }}>

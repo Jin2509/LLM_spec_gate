@@ -1,72 +1,73 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import EvidencePage from "@/app/runs/[runId]/evidence/page";
+import { mockApi } from "../helpers/api-routes";
+import { EVIDENCE_STORE, RUN_ID } from "../fixtures/api";
+
+async function renderLoaded() {
+  render(<EvidencePage />);
+  await screen.findByTestId("evidence-tab-G");
+}
 
 describe("Evidence Store Read-Only & Invariant Verification UI", () => {
-  it("renders topbar invariant check badge showing G ∩ B = ∅ holds", () => {
+  beforeEach(() => {
+    mockApi({
+      "GET /api/runs/current": { runId: RUN_ID },
+      "GET /api/runs/:id/evidence": EVIDENCE_STORE,
+    });
+  });
+
+  it("renders topbar invariant check badge showing G ∩ B = ∅ holds", async () => {
     render(<EvidencePage />);
 
-    const badge = screen.getByTestId("disjointness-invariant-badge");
-    expect(badge).toBeDefined();
+    const badge = await screen.findByTestId("disjointness-invariant-badge");
     expect(badge.textContent).toContain("BẤT BIẾN G ∩ B = ∅: HỢP LỆ");
   });
 
-  it("STRICT INVARIANT: Tab G has zero input elements or edit buttons", () => {
-    render(<EvidencePage />);
-
-    // Click Tab G
-    const tabG = screen.getByTestId("evidence-tab-G");
-    fireEvent.click(tabG);
+  it("STRICT INVARIANT: Tab G has zero input elements or edit buttons", async () => {
+    await renderLoaded();
+    fireEvent.click(screen.getByTestId("evidence-tab-G"));
 
     const tabGContent = screen.getByTestId("tab-content-G");
-
-    // Must have NO input or textarea elements
-    const inputs = tabGContent.querySelectorAll("input, textarea, [contenteditable='true']");
-    expect(inputs.length).toBe(0);
-
-    // Must have NO buttons for manual mutation inside Tab G
-    const buttons = tabGContent.querySelectorAll("button");
-    expect(buttons.length).toBe(0);
+    expect(tabGContent.querySelectorAll("input, textarea, [contenteditable='true']").length).toBe(0);
+    expect(tabGContent.querySelectorAll("button").length).toBe(0);
   });
 
-  it("STRICT INVARIANT: Tab B has zero input elements or edit buttons", () => {
-    render(<EvidencePage />);
-
-    // Click Tab B
-    const tabB = screen.getByTestId("evidence-tab-B");
-    fireEvent.click(tabB);
+  it("STRICT INVARIANT: Tab B has zero input elements or edit buttons", async () => {
+    await renderLoaded();
+    fireEvent.click(screen.getByTestId("evidence-tab-B"));
 
     const tabBContent = screen.getByTestId("tab-content-B");
-
-    // Must have NO input or textarea elements
-    const inputs = tabBContent.querySelectorAll("input, textarea, [contenteditable='true']");
-    expect(inputs.length).toBe(0);
-
-    // Must have NO buttons for manual mutation inside Tab B
-    const buttons = tabBContent.querySelectorAll("button");
-    expect(buttons.length).toBe(0);
+    expect(tabBContent.querySelectorAll("input, textarea, [contenteditable='true']").length).toBe(0);
+    expect(tabBContent.querySelectorAll("button").length).toBe(0);
   });
 
-  it("renders Metamorphic Relations ProvenanceTree in Anchor & Bao đóng tab", () => {
-    render(<EvidencePage />);
+  it("renders Metamorphic Relations ProvenanceTree in Anchor & Bao đóng tab", async () => {
+    await renderLoaded();
+    fireEvent.click(screen.getByTestId("evidence-tab-anchor_closure"));
 
-    const tabAnchor = screen.getByTestId("evidence-tab-anchor_closure");
-    fireEvent.click(tabAnchor);
-
-    const tree = screen.getByTestId("provenance-tree");
-    expect(tree).toBeDefined();
+    expect(screen.getByTestId("provenance-tree")).toBeDefined();
     expect(screen.getByTestId("provenance-node-anchor_root_01")).toBeDefined();
   });
 
-  it("renders Spec Debt tab with debt items and severity badges", () => {
+  it("renders Spec Debt tab with debt items and severity badges", async () => {
+    await renderLoaded();
+    fireEvent.click(screen.getByTestId("evidence-tab-spec_debt"));
+
+    expect(screen.getByTestId("tab-content-spec_debt")).toBeDefined();
+    expect(screen.getByTestId("debt-row-debt_01")).toBeDefined();
+  });
+
+  it("shows an explicit 'unavailable' state when backend answers 501", async () => {
+    mockApi({
+      "GET /api/runs/current": { runId: RUN_ID },
+      "GET /api/runs/:id/evidence": { status: 501, body: { error: "Engine bằng chứng chưa được cấu hình.", code: "ENGINE_NOT_CONFIGURED" } },
+    });
     render(<EvidencePage />);
 
-    const tabDebt = screen.getByTestId("evidence-tab-spec_debt");
-    fireEvent.click(tabDebt);
-
-    const debtContent = screen.getByTestId("tab-content-spec_debt");
-    expect(debtContent).toBeDefined();
-    expect(screen.getByTestId("debt-row-debt_01")).toBeDefined();
+    const unavailable = await screen.findByTestId("feature-unavailable");
+    expect(unavailable.textContent).toContain("Chức năng chưa khả dụng");
+    expect(screen.queryByTestId("evidence-tab-G")).toBeNull();
   });
 });

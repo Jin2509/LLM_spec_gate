@@ -8,7 +8,7 @@
 
 export const i18n = {
   app: {
-    title: "Adjudicator Lab",
+    title: "SpecGate",
     subtitle: "UI Testbed cho Adjudicated Dual-Oracle Monitoring v1.4",
     tagline: "Phòng thí nghiệm phân xử violation giữa Code và Monitor do LLM sinh",
   },
@@ -18,7 +18,7 @@ export const i18n = {
     navStats: "Thống kê",
     flowSteps: ["1. Chọn đề bài", "2. Sinh spec và code", "3. Phân xử"],
     flowLabel: "Các bước kiểm thử",
-    backendLimitation: "Backend hiện có chạy pipeline phân xử minh họa. Chưa có agent Spec/Code, metadata model hoặc dữ liệu confidence để hiển thị.",
+    backendLimitation: "Kết quả phân xử do backend trả về. Chức năng nào backend chưa hỗ trợ sẽ được báo rõ, không thay bằng dữ liệu minh họa.",
     logs: "Nhật ký",
     logInfo: "Thông tin",
     logWarn: "Cảnh báo",

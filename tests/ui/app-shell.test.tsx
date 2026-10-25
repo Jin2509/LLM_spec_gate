@@ -4,6 +4,8 @@ import { render, screen } from "@testing-library/react";
 import { AppShell } from "@/ui/shell/AppShell";
 import { Sidebar } from "@/ui/shell/Sidebar";
 import { Topbar } from "@/ui/shell/Topbar";
+import { mockApi } from "../helpers/api-routes";
+import { RUN_ID, RUN_SUMMARY } from "../fixtures/api";
 
 // Mock next/navigation
 vi.mock("next/navigation", () => ({
@@ -26,24 +28,19 @@ describe("App Shell & Responsive Navigation", () => {
     expect(screen.getAllByText("Thiết lập")[0]).toBeDefined();
   });
 
-  it("renders Topbar with research context and InvariantBar", () => {
-    render(
-      <Topbar
-        runId="run_custom_88"
-        datasetName="EvalPlus Custom"
-        anchorLevel="A2"
-        monitorVersion="P_1"
-        isHeldOutLocked={true}
-      />
-    );
+  it("renders Topbar with research context and InvariantBar from the run summary API", async () => {
+    mockApi({ [`GET /api/runs/${RUN_ID}/summary`]: RUN_SUMMARY });
+    render(<Topbar runId={RUN_ID} />);
 
-    expect(screen.getByText("run_custom_88")).toBeDefined();
-    expect(screen.getByText("EvalPlus Custom")).toBeDefined();
+    expect(screen.getByText(RUN_ID)).toBeDefined();
+    expect(await screen.findByText("EvalPlus Custom")).toBeDefined();
     expect(screen.getByText("ANCHOR: A2")).toBeDefined();
     expect(screen.getByText("MONITOR: P_1")).toBeDefined();
+    expect(screen.getByTestId("invariant-bar")).toBeDefined();
   });
 
   it("renders full AppShell container wrapping children without horizontal overflow", () => {
+    mockApi({});
     const { container } = render(
       <AppShell currentRunId="run_test_01">
         <div data-testid="page-content">Nội dung trang thử nghiệm</div>

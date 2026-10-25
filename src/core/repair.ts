@@ -65,9 +65,7 @@ export function calculateGuardBreadth(guard: string): number {
  * 3. Breadth ASC
  * 4. Identifier lexicographical order
  */
-export function rankCandidates(
-  candidates: ReadonlyArray<RankedRepairCandidate>
-): RankedRepairCandidate[] {
+export function rankCandidates<T extends RankedRepairCandidate>(candidates: ReadonlyArray<T>): T[] {
   return [...candidates].sort((a, b) => {
     const famA = FAMILY_PRIORITY[a.family] ?? 99;
     const famB = FAMILY_PRIORITY[b.family] ?? 99;

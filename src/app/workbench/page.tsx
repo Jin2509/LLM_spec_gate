@@ -1,5 +1,11 @@
-import WorkbenchPage from "../runs/[runId]/workbench/page";
+import { Suspense } from "react";
+import { PageFallback } from "@/ui/layout";
+import { WorkbenchScreen } from "@/features/workbench";
 
 export default function DefaultWorkbenchPage() {
-  return <WorkbenchPage />;
+  return (
+    <Suspense fallback={<PageFallback label="Đang tải bàn phân xử..." />}>
+      <WorkbenchScreen />
+    </Suspense>
+  );
 }

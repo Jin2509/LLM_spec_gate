@@ -1,134 +1,98 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { ChatTestbed } from "@/ui/chat/ChatTestbed";
+import { render, screen, fireEvent, act } from "@testing-library/react";
+import { ChatTestbed } from "@/features/chat";
+import { mockApi, ndjson } from "../helpers/api-routes";
+import { RUN_ID, SPEC_FAULT_CASE } from "../fixtures/api";
 
-describe("ChatTestbed LLM-Style Interaction Testbed", () => {
-  it("renders left sidebar with dataset selector, search input, and test cases", () => {
-    render(<ChatTestbed initialCaseId="case_spec_fault" />);
+const DATASETS = {
+  datasets: [
+    {
+      id: "ds_1",
+      name: "Dataset thật",
+      version: "v1",
+      taskCount: 1,
+      tasks: [
+        {
+          id: "task_01",
+          name: "sort_even",
+          intentDocstring: "Sắp xếp phần tử ở chỉ số chẵn.",
+          outputType: "list",
+          isUniqueOutput: true,
+          assignedBy: "expert",
+          anchorOrigin: "gốc",
+          hasA2: true,
+          hasA3: false,
+          anchorLevel: "A2",
+          isBSynthSupported: true,
+        },
+      ],
+    },
+  ],
+};
 
-    expect(screen.getByText("Dual-Oracle Testbed")).toBeDefined();
-    expect(screen.getByLabelText("Dataset")).toBeDefined();
-    expect(screen.getByPlaceholderText(/Tìm tác vụ, witness, hoặc ID/)).toBeDefined();
-
-    // Verify task items in sidebar
-    expect(screen.getByTestId("case-item-case_spec_fault")).toBeDefined();
-    expect(screen.getByTestId("case-item-case_code_fault")).toBeDefined();
-    expect(screen.getByTestId("case-item-case_und_evidence")).toBeDefined();
+async function send(text: string) {
+  fireEvent.change(screen.getByRole("textbox"), { target: { value: text } });
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Gửi" }));
   });
+}
 
-  it("renders central stream with runner trigger, system output, and monitor evaluation", () => {
-    render(<ChatTestbed initialCaseId="case_spec_fault" />);
-
-    // Test runner trigger message
-    expect(screen.getByText(/Kiểm Thử Viên \(Testbed Runner\)/)).toBeDefined();
-    expect(screen.getByText(/w = \[5,3,2,8\]/)).toBeDefined();
-
-    // Dual oracle monitor message
-    expect(screen.getByText(/Giám Sát Song Hành \(Dual-Oracle Monitor\)/)).toBeDefined();
-    expect(screen.getByText(/c = \[2,3,5,8\]/)).toBeDefined();
-    expect(screen.getByText(/BÁC BỎ/)).toBeDefined();
-    expect(screen.getByText(/SPEC_FAULT/)).toBeDefined();
-  });
-
-  it("renders single-shot prompt box for UNKNOWN case and locks upon answering", async () => {
-    render(<ChatTestbed initialCaseId="case_und_evidence" />);
-
-    // In-stream prompt box should be visible
-    const promptBox = screen.getByTestId("chat-prompt-box");
-    expect(promptBox).toBeDefined();
-    expect(
-      screen.getByText(/Phân cụm \[\[1\.2\], \[4\.5, 7\.8\]\] có chấp nhận được/)
-    ).toBeDefined();
-
-    // Accept button should be available
-    const acceptBtn = screen.getByTestId("chat-ticket-accept-btn");
-    expect(acceptBtn).toBeDefined();
-
-    // Click Accept button
-    fireEvent.click(acceptBtn);
-
-    // Prompt box must immediately lock and stamp SPENT
-    await waitFor(() => {
-      expect(screen.getByTestId("chat-spent-stamp")).toBeDefined();
-      expect(screen.getByText("ĐÃ SỬ DỤNG (SPENT)")).toBeDefined();
+describe("ChatTestbed — dữ liệu từ backend", () => {
+  beforeEach(() => {
+    mockApi({
+      "GET /api/datasets": DATASETS,
+      "GET /api/cases": { cases: [SPEC_FAULT_CASE] },
+      "POST /api/runs": { status: 201, body: { run: { run_id: "eval_1" } } },
+      "PATCH /api/runs/:id": { run: { run_id: "eval_1" } },
+      [`POST /api/runs/${RUN_ID}/cases/${SPEC_FAULT_CASE.id}/stream`]: () =>
+        ndjson([
+          { type: "step", id: "load_task", status: "done", label: "load" },
+          { type: "text", delta: "Monitor quá chặt tại w." },
+          { type: "done", verdict: "SPEC_FAULT", totalMs: 12 },
+        ]),
     });
-
-    // Accept/Reject buttons should no longer be present
-    expect(screen.queryByTestId("chat-ticket-accept-btn")).toBeNull();
+    // EventSource không có trong jsdom
+    (globalThis as { EventSource?: unknown }).EventSource = class {
+      onmessage = null;
+      close() {}
+    };
   });
 
-  it("keeps inspection drawer collapsed by default and opens on clicking inspect button", () => {
-    render(<ChatTestbed initialCaseId="case_spec_fault" />);
+  it("hiển thị dataset và case lấy từ API", async () => {
+    render(<ChatTestbed runId={RUN_ID} />);
 
-    // Initially collapsed
-    expect(screen.queryByTestId("inspection-drawer")).toBeNull();
-
-    // Click inspect toggle button
-    const inspectBtn = screen.getByTestId("inspect-toggle-btn");
-    fireEvent.click(inspectBtn);
-
-    // Drawer is now open
-    const drawer = screen.getByTestId("inspection-drawer");
-    expect(drawer).toBeDefined();
-    expect(screen.getByText("HỒ SƠ PHÂN XỬ CHI TIẾT")).toBeDefined();
-
-    // Check tabs
-    expect(screen.getByText("Bằng chứng (G & Adv)")).toBeDefined();
-    expect(screen.getByText("Quy tắc (R1–R6)")).toBeDefined();
-    expect(screen.getByText("Repair & Gate (G1–G5)")).toBeDefined();
-
-    // Switch to Rules tab
-    fireEvent.click(screen.getByText("Quy tắc (R1–R6)"));
-    expect(screen.getByText("Cây Quyết Định R1–R6 (RuleLadder)")).toBeDefined();
-
-    // Switch to Gate tab
-    fireEvent.click(screen.getByText("Repair & Gate (G1–G5)"));
-    expect(screen.getByText("5 Chốt Kiểm Fail-Closed Gate (G1–G5)")).toBeDefined();
+    expect((await screen.findAllByText(/Dataset thật · v1/)).length).toBeGreaterThan(0);
+    expect(await screen.findByText(/sort_even · case_spec_fault/)).toBeDefined();
   });
 
-  it("supports bottom chat composer to send messages and receive assistant responses", async () => {
-    render(<ChatTestbed initialCaseId="case_spec_fault" />);
+  it("chạy luồng phân xử NDJSON và hiển thị verdict do backend trả về", async () => {
+    render(<ChatTestbed runId={RUN_ID} />);
+    await screen.findByText(/sort_even · case_spec_fault/);
 
-    // Bottom composer input exists
-    const input = screen.getByTestId("chat-composer-input") as HTMLInputElement;
-    const sendBtn = screen.getByTestId("chat-composer-send-btn") as HTMLButtonElement;
-    expect(input).toBeDefined();
-    expect(sendBtn.disabled).toBe(true);
+    await send("Kiểm tra mẫu này");
 
-    // Type a re-description question
-    fireEvent.change(input, { target: { value: "Mô tả lại bài toán và phân tích lỗi" } });
-    expect(sendBtn.disabled).toBe(false);
+    expect(await screen.findByText("Monitor quá chặt tại w.")).toBeDefined();
+    expect(screen.getAllByText("SPEC_FAULT").length).toBeGreaterThan(0);
+  });
 
-    // Submit message
-    fireEvent.click(sendBtn);
-
-    // User message should appear in chat
-    expect(screen.getByText("Mô tả lại bài toán và phân tích lỗi")).toBeDefined();
-
-    // Assistant response arrives with task description
-    await waitFor(
-      () => {
-        expect(screen.getByText(/Mô Tả Tác Vụ:/)).toBeDefined();
+  it("báo lỗi rõ ràng khi backend trả 501, không giả lập kết quả", async () => {
+    mockApi({
+      "GET /api/datasets": DATASETS,
+      "GET /api/cases": { cases: [SPEC_FAULT_CASE] },
+      "POST /api/runs": { status: 201, body: { run: { run_id: "eval_1" } } },
+      [`POST /api/runs/${RUN_ID}/cases/${SPEC_FAULT_CASE.id}/stream`]: {
+        status: 501,
+        body: { error: "Engine phân xử chưa được cấu hình." },
       },
-      { timeout: 2000 }
-    );
-  });
+    });
+    render(<ChatTestbed runId={RUN_ID} />);
+    await screen.findByText(/sort_even · case_spec_fault/);
 
-  it("toggles technical details view inside message stream", () => {
-    render(<ChatTestbed initialCaseId="case_spec_fault" />);
+    await send("Kiểm tra mẫu này");
 
-    // Collapsible button exists
-    const toggleBtn = screen.getByText(/Hiện chi tiết kỹ thuật/);
-    expect(toggleBtn).toBeDefined();
-
-    // Click to show details
-    fireEvent.click(toggleBtn);
-    expect(screen.getByText(/Ẩn chi tiết kỹ thuật/)).toBeDefined();
-    expect(screen.getByText(/Mệnh đề kiểm tra:/)).toBeDefined();
-
-    // Click to hide details
-    fireEvent.click(screen.getByText(/Ẩn chi tiết kỹ thuật/));
-    expect(screen.getByText(/Hiện chi tiết kỹ thuật/)).toBeDefined();
+    const alert = await screen.findByText(/Chức năng chưa khả dụng: Engine phân xử chưa được cấu hình\./);
+    expect(alert).toBeDefined();
+    expect(screen.queryByText("SPEC_FAULT")).toBeNull();
   });
 });

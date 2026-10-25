@@ -11,6 +11,7 @@
  */
 "use client";
 
+import { TriangleAlert } from "lucide-react";
 import React from "react";
 import { i18n } from "@/i18n/vi";
 
@@ -97,7 +98,7 @@ export function InvariantBar({
       {rejectedWritesCount > 0 && (
         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
           <span style={{ color: "var(--v-spec)" }}>
-            ⚠ {i18n.invariants.rejectedWrites}: {rejectedWritesCount}
+            <TriangleAlert size={12} className="inline-block shrink-0 align-[-2px]" aria-hidden="true" /> {i18n.invariants.rejectedWrites}: {rejectedWritesCount}
           </span>
         </div>
       )}

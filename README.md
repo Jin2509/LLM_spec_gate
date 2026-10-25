@@ -1,4 +1,4 @@
-# Adjudicated Dual-Oracle Monitoring v1.4 Testbed
+# SpecGate — Adjudicated Dual-Oracle Monitoring v1.4 Testbed
 
 UI testbed Next.js App Router (TypeScript strict, pnpm) phục vụ nghiên cứu và thẩm định cho bài báo khoa học **"Adjudicated Dual-Oracle Monitoring v1.4"**.
 
@@ -50,9 +50,12 @@ bash scripts/check-no-hex-in-tsx.sh
 ```
 
 ### 4. Chạy Môi trường Phát triển (Dev Server)
+App không chứa dữ liệu mẫu: mọi `/api/*` được proxy sang backend thật (hợp đồng trong [api.md](api.md)). Cấu hình địa chỉ backend trước khi chạy:
 ```bash
+cp .env.example .env.local   # sửa BACKEND_URL trỏ tới backend
 pnpm dev
 ```
+Thiếu `BACKEND_URL` thì mọi `/api/*` trả 503 `BACKEND_NOT_CONFIGURED`.
 Truy cập [http://localhost:3000](http://localhost:3000).
 
 ### 5. Build Production

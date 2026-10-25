@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useRunEvents } from "@/features/runs/use-run-events";
-import type { RunEvent } from "@/mock/runs";
+import type { RunEvent } from "@/lib/api/types";
 
 describe("useRunEvents hook batching", () => {
   beforeEach(() => {

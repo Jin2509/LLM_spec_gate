@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import type { MetamorphicAnchorNode } from "@/mock/fixtures/evidence-store";
+import type { MetamorphicAnchorNode } from "@/lib/api/types";
 
 export interface ProvenanceTreeProps {
   rootNode: MetamorphicAnchorNode;

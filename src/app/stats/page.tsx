@@ -1,34 +1,11 @@
-"use client";
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import type { Metrics, Run } from "@/core/evaluation-types";
+import { Suspense } from "react";
+import { PageFallback } from "@/ui/layout";
+import { StatsScreen } from "@/features/stats";
 
-const classes = ["CODE_FAULT", "SPEC_FAULT", "UNKNOWN"];
-function BarChart({ title, rows }: { title: string; rows: { label: string; value: number }[] }) {
-  return <section className="stat-card"><h2>{title}</h2><div role="img" aria-label={title}>{rows.map((row) => <div className="bar-row" key={row.label}><span>{row.label}</span><div className="bar-track" tabIndex={0} aria-label={`${row.label}: ${row.value}`}><div className="bar-fill" style={{ width: `${Math.max(1, row.value)}%` }} /></div><b className="mono">{row.value}</b></div>)}</div><details><summary>Xem dạng bảng</summary><table className="eval-table"><tbody>{rows.map((r) => <tr key={r.label}><th>{r.label}</th><td>{r.value}</td></tr>)}</tbody></table></details></section>;
-}
 export default function StatsPage() {
-  const [runs, setRuns] = useState<Run[]>([]);
-  const [metrics, setMetrics] = useState<Metrics>();
-  const [dataset, setDataset] = useState("");
-  const [from, setFrom] = useState(""); const [to, setTo] = useState("");
-  useEffect(() => { const q = new URLSearchParams(); if (dataset) q.set("dataset", dataset); if (from) q.set("from", from); if (to) q.set("to", to); fetch(`/api/stats?${q}`).then((r) => r.json()).then((d) => { setRuns(d.runs ?? []); setMetrics(d.metrics); }); }, [dataset, from, to]);
-  const byProblem = useMemo(() => { const counts = new Map<string, Record<string, number>>(); for (const run of runs) { const key = run.problem_id; const current = counts.get(key) ?? { CODE_FAULT: 0, SPEC_FAULT: 0, UNKNOWN: 0 }; const label = String(run.verdicts.at(-1) ?? "").startsWith("UNKNOWN") ? "UNKNOWN" : String(run.verdicts.at(-1) ?? ""); if (label in current) current[label] = (current[label] ?? 0) + 1; counts.set(key, current); } return [...counts]; }, [runs]);
-  const byDay = useMemo(() => { const data = new Map<string, { total: number; unknown: number }>(); for (const r of runs) { const key = r.created_at.slice(0, 10); const v = data.get(key) ?? { total: 0, unknown: 0 }; v.total++; if (String(r.verdicts.at(-1) ?? "").startsWith("UNKNOWN")) v.unknown++; data.set(key, v); } return [...data]; }, [runs]);
-  const confusion = classes.map((gold) => classes.map((pred) => runs.filter((r) => r.gold_label && (String(r.gold_label).startsWith("UNKNOWN") ? "UNKNOWN" : r.gold_label) === gold && (String(r.verdicts.at(-1) ?? "").startsWith("UNKNOWN") ? "UNKNOWN" : r.verdicts.at(-1)) === pred).length));
-  const histogram = [0, 0, 0, 0, 0]; for (const r of runs) if (r.confidence != null) histogram[Math.min(4, Math.floor(r.confidence * 5))] = (histogram[Math.min(4, Math.floor(r.confidence * 5))] ?? 0) + 1;
-  const poorRuns = runs.filter((r) => (r.gold_label && r.gold_label !== r.verdicts.at(-1)) || String(r.verdicts.at(-1) ?? "").startsWith("UNKNOWN"));
-  const raw = JSON.stringify(metrics ?? {}, null, 2);
-  return <main className="eval-page"><nav className="eval-nav"><Link href="/">Kiểm thử</Link><Link href="/history">Lịch sử</Link><Link aria-current="page" href="/stats">Thống kê</Link></nav><header className="eval-header"><div><h1>Thống kê phiên chạy</h1><p>Số liệu được tính từ các run đã lưu; chưa có dữ liệu thì không thay bằng số liệu trong bài báo.</p></div><button className="eval-button" onClick={() => { const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([raw],{type:"application/json"})); a.download="thong-ke.json"; a.click(); URL.revokeObjectURL(a.href); }}>Xuất thống kê</button></header>
-    <section className="eval-filters"><input aria-label="Dataset" placeholder="Mọi dataset" value={dataset} onChange={(e) => setDataset(e.target.value)} /><label>Từ <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label><label>Đến <input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label></section>
-    <div className="metric-grid">{[["Tổng run", metrics?.totalRuns], ...classes.map((x) => [x, metrics?.byVerdict[x]]), ["Độ chính xác", metrics?.accuracy == null ? "—" : `${(metrics.accuracy * 100).toFixed(1)}%`], ["Confidence TB", metrics?.averageConfidence == null ? "—" : metrics.averageConfidence.toFixed(3)], ["Latency TB / p50 / p95", [metrics?.latency.mean, metrics?.latency.p50, metrics?.latency.p95].map((v) => v == null ? "—" : `${v.toFixed(0)} ms`).join(" / ")], ["Lượt bổ sung", metrics?.followupsUsed], ["UNKNOWN được giải quyết", metrics?.unknownResolvedRate == null ? "—" : `${(metrics.unknownResolvedRate * 100).toFixed(1)}%`]].map(([label, value]) => <section className="metric-card" key={String(label)}><span>{label}</span><strong className="mono">{value ?? 0}</strong></section>)}</div>
-    <div className="stats-grid"><BarChart title="Số lượng theo verdict" rows={classes.map((label) => ({ label, value: metrics?.byVerdict[label] ?? 0 }))} />
-      <section className="stat-card"><h2>Tỷ lệ theo đề bài</h2>{byProblem.map(([id, values]) => <div className="stack-row" key={id}><span>{id}</span>{classes.map((c) => <span key={c} style={{ flex: values[c] ?? 0, borderBottom: `3px ${c === "UNKNOWN" ? "dashed" : "solid"} var(--accent)` }}>{c}: {values[c] ?? 0}</span>)}</div>)}<details><summary>Xem dạng bảng</summary><pre>{JSON.stringify(byProblem, null, 2)}</pre></details></section>
-      <section className="stat-card"><h2>Ma trận nhầm lẫn · nhãn đúng × verdict</h2><table className="eval-table"><thead><tr><th>Nhãn đúng</th>{classes.map((c) => <th key={c}>{c}</th>)}</tr></thead><tbody>{classes.map((c, i) => <tr key={c}><th>{c}</th>{confusion[i]?.map((n, j) => <td key={j}>{n} · {runs.length ? (n / runs.length * 100).toFixed(1) : "0.0"}%</td>)}</tr>)}</tbody></table><details><summary>Xem dạng bảng</summary><p>Precision, recall, F1 cần nhãn đúng cho mỗi run; được tính khi dữ liệu nhãn đã có.</p></details></section>
-      <section className="stat-card"><h2>Số run theo ngày · tỷ lệ UNKNOWN</h2>{byDay.map(([day, value]) => <div className="bar-row" key={day}><span>{day}</span><span>{value.total} run · UNKNOWN {value.total ? (value.unknown / value.total * 100).toFixed(1) : 0}%</span></div>)}<details><summary>Xem dạng bảng</summary><pre>{JSON.stringify(byDay, null, 2)}</pre></details></section>
-      <BarChart title="Histogram confidence (có nhãn đúng / sai)" rows={histogram.map((v, i) => ({ label: `${i * 20}–${(i + 1) * 20}%`, value: v }))} />
-      <section className="stat-card"><h2>So sánh phiên bản agent/model</h2><p>Backend hiện tại chưa phát sinh đầu ra agent hoặc metadata model.</p><details><summary>Xem dạng bảng</summary><p>Chưa có cặp phiên bản để so sánh.</p></details></section>
-      <section className="stat-card"><h2>Số liệu thô</h2><pre>{raw}</pre><button className="eval-button" onClick={() => void navigator.clipboard?.writeText(raw)}>Sao chép dạng văn bản</button></section>
-      <section className="stat-card"><h2>Ca lỗi cần xem</h2>{poorRuns.length ? poorRuns.map((run) => <p key={run.run_id}><Link href={`/history/${run.run_id}`}>{run.problem_id} · {run.verdicts.at(-1) ?? "UNKNOWN"} · {run.run_id}</Link></p>) : <p>Chưa có ca cần xem.</p>}</section>
-    </div></main>;
+  return (
+    <Suspense fallback={<PageFallback label="Đang tải thống kê..." />}>
+      <StatsScreen />
+    </Suspense>
+  );
 }

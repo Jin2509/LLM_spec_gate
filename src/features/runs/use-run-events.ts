@@ -8,7 +8,8 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import type { RunEvent } from "@/mock/runs";
+import type { RunEvent } from "@/lib/api/types";
+import { api } from "@/lib/api/endpoints";
 
 export interface UseRunEventsOptions {
   runId: string;
@@ -57,7 +58,7 @@ export function useRunEvents({
       eventSourceRef.current.close();
     }
 
-    const url = `/api/runs/${encodeURIComponent(runId)}/events?lastEventId=${lastSeqRef.current}`;
+    const url = api.runs.eventsUrl(runId, lastSeqRef.current);
     const es = new EventSource(url);
     eventSourceRef.current = es;
 

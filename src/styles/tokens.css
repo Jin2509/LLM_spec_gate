@@ -1,5 +1,5 @@
 /**
- * src/styles/tokens.css — Adjudicator Lab Design Tokens
+ * src/styles/tokens.css — SpecGate Design Tokens
  *
  * CANONICAL source of all visual values.
  * ┌─────────────────────────────────────────────────────────────────────────┐
@@ -44,8 +44,9 @@
   --radius-lg: 8px;
 
   /* Font stacks */
-  --font-sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-sans: var(--font-roboto), Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: var(--font-roboto-mono), "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-ui: var(--font-sans);
 
   /* ── Legacy aliases (kept for backward compat with existing components) ── */
   --paper-ground:  var(--bg-app);

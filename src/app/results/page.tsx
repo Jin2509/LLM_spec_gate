@@ -1,5 +1,11 @@
-import ResultsPage from "../runs/[runId]/results/[rq]/page";
+import { Suspense } from "react";
+import { PageFallback } from "@/ui/layout";
+import { ResultsScreen } from "@/features/results";
 
 export default function DefaultResultsPage() {
-  return <ResultsPage />;
+  return (
+    <Suspense fallback={<PageFallback label="Đang tải Báo cáo Khoa học..." />}>
+      <ResultsScreen />
+    </Suspense>
+  );
 }

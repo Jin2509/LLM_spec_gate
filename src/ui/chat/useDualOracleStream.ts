@@ -6,7 +6,7 @@
  *   - Track timeline steps (pending, running, done, error)
  *   - Provide token streaming for text
  *   - Support cancellation via AbortController
- *   - Offline fallback if fetch fails: emulates identical event sequence
+ *   - Lỗi mạng/API được trả về qua `error` (không giả lập kết quả phía client)
  */
 "use client";
 
@@ -17,6 +17,8 @@ import type {
   StreamStepState,
 } from "@/core/stream-types";
 import type { CaseDossier, Verdict } from "@/core/types";
+import { api } from "@/lib/api/endpoints";
+import { errorMessage, readNdjson } from "@/lib/api/client";
 
 const INITIAL_STEPS: StreamStepState[] = [
   { id: "load_task", label: "Nhận witness w và nạp task", status: "pending" },
@@ -37,7 +39,7 @@ export interface DualOracleStreamResult {
   isHumanQueryTriggered: boolean;
 }
 
-export function useDualOracleStream(runId: string = "run_evalplus_01") {
+export function useDualOracleStream(runId: string) {
   const [steps, setSteps] = useState<StreamStepState[]>(INITIAL_STEPS);
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
   const [streamedText, setStreamedText] = useState<string>("");
@@ -74,130 +76,41 @@ export function useDualOracleStream(runId: string = "run_evalplus_01") {
       abortControllerRef.current = controller;
 
       try {
-        const response = await fetch(
-          `/api/runs/${runId}/cases/${caseDossier.id}/stream`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ prompt: userPrompt }),
-            signal: controller.signal,
-          }
-        );
-
+        const response = await api.cases.stream(runId, caseDossier.id, userPrompt, controller.signal);
         if (!response.ok || !response.body) {
-          throw new Error(`HTTP ${response.status}: Không thể kết nối stream endpoint`);
+          const body = (await response.json().catch(() => ({}))) as { error?: string };
+          const prefix = response.status === 501 ? "Chức năng chưa khả dụng" : `HTTP ${response.status}`;
+          throw new Error(`${prefix}: ${body.error ?? "Không thể kết nối luồng phân xử."}`);
         }
 
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() ?? "";
-
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed) continue;
-
-            try {
-              const event: DualOracleStreamEvent = JSON.parse(trimmed);
-
-              if (event.type === "step") {
-                setSteps((prev) =>
-                  prev.map((s) =>
-                    s.id === event.id
-                      ? {
-                          ...s,
-                          status: event.status,
-                          durationMs: event.durationMs ?? s.durationMs,
-                          data: event.data ?? s.data,
-                        }
-                      : s
-                  )
-                );
-              } else if (event.type === "text") {
-                setStreamedText((prev) => prev + event.delta);
-              } else if (event.type === "human_query") {
-                setIsHumanQueryTriggered(true);
-              } else if (event.type === "done") {
-                setFinalVerdict(event.verdict);
-                setTotalMs(event.totalMs);
-              } else if (event.type === "error") {
-                setError(event.message);
-                if (event.step) {
-                  setSteps((prev) =>
-                    prev.map((s) =>
-                      s.id === event.step
-                        ? { ...s, status: "error", error: event.message }
-                        : s
-                    )
-                  );
-                }
-              }
-            } catch {
-              // ignore malformed NDJSON lines
+        for await (const event of readNdjson<DualOracleStreamEvent>(response)) {
+          if (event.type === "step") {
+            setSteps((prev) =>
+              prev.map((s) =>
+                s.id === event.id
+                  ? { ...s, status: event.status, durationMs: event.durationMs ?? s.durationMs, data: event.data ?? s.data }
+                  : s
+              )
+            );
+          } else if (event.type === "text") {
+            setStreamedText((prev) => prev + event.delta);
+          } else if (event.type === "human_query") {
+            setIsHumanQueryTriggered(true);
+          } else if (event.type === "done") {
+            setFinalVerdict(event.verdict);
+            setTotalMs(event.totalMs);
+          } else if (event.type === "error") {
+            setError(event.message);
+            if (event.step) {
+              setSteps((prev) => prev.map((s) => (s.id === event.step ? { ...s, status: "error", error: event.message } : s)));
             }
           }
         }
       } catch (err: unknown) {
-        if (controller.signal.aborted) {
-          return;
-        }
-
-        // Offline / fallback emulation in case network or sandbox blocks
-        console.warn("Stream API fallback: Emulating execution flow", err);
-        const startTime = Date.now();
-
-        for (const step of INITIAL_STEPS) {
-          if (controller.signal.aborted) return;
-          setSteps((prev) =>
-            prev.map((s) => (s.id === step.id ? { ...s, status: "running" } : s))
-          );
-          await new Promise((r) => setTimeout(r, 120));
-          if (controller.signal.aborted) return;
-
-          let stepData: StreamStepState["data"] = undefined;
-          if (step.id === "load_task") stepData = { w: caseDossier.witness };
-          if (step.id === "run_code") stepData = { c: caseDossier.codeOutput };
-          if (step.id === "oracle_p0") {
-            stepData = {
-              accepted: !caseDossier.monitorRejectionClause,
-              violated: caseDossier.monitorRejectionClause ?? undefined,
-            };
-          }
-          if (step.id === "adjudicate") {
-            stepData = {
-              rule: caseDossier.adjudication.matchedRule,
-              verdict: caseDossier.adjudication.verdict,
-            };
-          }
-
-          setSteps((prev) =>
-            prev.map((s) =>
-              s.id === step.id
-                ? { ...s, status: "done", durationMs: 120, data: stepData }
-                : s
-            )
-          );
-        }
-
-        const isUnknown =
-          caseDossier.adjudication.verdict === "UNKNOWN_EVIDENCE" ||
-          caseDossier.adjudication.verdict === "UNKNOWN_CONFLICT" ||
-          caseDossier.adjudication.verdict === "UNKNOWN_GATE";
-
-        if (isUnknown && caseDossier.ticket) {
-          setIsHumanQueryTriggered(true);
-        }
-
-        setStreamedText(caseDossier.adjudication.explanation);
-        setFinalVerdict(caseDossier.adjudication.verdict);
-        setTotalMs(Date.now() - startTime);
+        if (controller.signal.aborted) return;
+        // Không giả lập kết quả phía client: lỗi mạng/API được báo trung thực cho người dùng.
+        setError(errorMessage(err, "Mất kết nối tới luồng phân xử."));
+        setSteps((prev) => prev.map((s) => (s.status === "running" ? { ...s, status: "error" } : s)));
       } finally {
         setIsStreaming(false);
         abortControllerRef.current = null;

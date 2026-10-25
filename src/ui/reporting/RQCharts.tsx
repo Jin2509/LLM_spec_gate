@@ -1,28 +1,26 @@
 "use client";
 
 import React, { useState } from "react";
-import {
-  type LinkedWitness,
-  RQ1_DATA,
-  RQ2_METHODS,
-  RQ2_CONFUSION_MATRIX,
-  RQ3_ABLATION_DATA,
-  RQ4_CORRELATION_DATA,
-  RQ5_SUITE,
-  UNKNOWN_GATE_BREAKDOWN,
-  RQ6_STRATEGIES,
-} from "@/reporting/results-data";
+import type { LinkedWitness } from "@/reporting/results-data";
+import type { RQData } from "@/lib/api/types";
 
-export interface ChartProps {
+/** Dữ liệu biểu đồ đến từ GET /api/runs/[id]/results/[rq] (xem api.md). */
+export interface ChartProps<R extends RQData["rq"]> {
+  data: Extract<RQData, { rq: R }>;
   onSelectWitnesses: (witnesses: ReadonlyArray<LinkedWitness>) => void;
 }
 
+/** Trục biểu đồ suy ra từ dữ liệu backend, giữ thứ tự xuất hiện. */
+function uniqueInOrder<T>(values: readonly T[]): T[] {
+  return [...new Set(values)];
+}
+
 // ── RQ1: Stacked Bar Chart ────────────────────────────────────────────────────
-export function RQ1Chart({ onSelectWitnesses }: ChartProps) {
+export function RQ1Chart({ data, onSelectWitnesses }: ChartProps<"rq1">) {
   return (
     <div data-testid="rq1-chart" className="flex flex-col gap-4 font-mono text-xs">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {RQ1_DATA.map((item, idx) => (
+        {data.categories.map((item, idx) => (
           <div
             key={idx}
             data-testid={`rq1-bar-${idx}`}
@@ -78,10 +76,11 @@ export function RQ1Chart({ onSelectWitnesses }: ChartProps) {
 }
 
 // ── RQ2: Risk-Coverage Curves & 4-Class Confusion Matrix ───────────────────────
-export function RQ2Chart({ onSelectWitnesses }: ChartProps) {
+export function RQ2Chart({ data, onSelectWitnesses }: ChartProps<"rq2">) {
   const [activeMode, setActiveMode] = useState<"fail_closed" | "fail_open">("fail_closed");
 
-  const method = RQ2_METHODS.find((m) => m.id === activeMode) ?? RQ2_METHODS[0]!;
+  const method = data.methods.find((m) => m.id === activeMode) ?? data.methods[0];
+  if (!method) return null;
 
   return (
     <div data-testid="rq2-chart" className="flex flex-col gap-5 font-mono text-xs">
@@ -191,7 +190,7 @@ export function RQ2Chart({ onSelectWitnesses }: ChartProps) {
               </tr>
             </thead>
             <tbody>
-              {RQ2_CONFUSION_MATRIX.map((row, rIdx) => (
+              {data.confusionMatrix.map((row, rIdx) => (
                 <tr key={rIdx} className="border-b" style={{ borderColor: "var(--rule)" }}>
                   <td className="p-2 border-r font-semibold" style={{ borderColor: "var(--rule)" }}>{row.trueClass}</td>
                   <td
@@ -236,9 +235,9 @@ export function RQ2Chart({ onSelectWitnesses }: ChartProps) {
 }
 
 // ── RQ3: Ablation Heatmap A0-A3 x Evidence Sources ───────────────────────────
-export function RQ3Chart({ onSelectWitnesses }: ChartProps) {
-  const levels = ["A0", "A1", "A2", "A3"] as const;
-  const sources = ["Docstring Anchor", "Differential A3", "Verified MR", "Formal A2"];
+export function RQ3Chart({ data, onSelectWitnesses }: ChartProps<"rq3">) {
+  const levels = uniqueInOrder(data.cells.map((c) => c.anchorLevel)).sort();
+  const sources = uniqueInOrder(data.cells.map((c) => c.source));
 
   return (
     <div data-testid="rq3-chart" className="flex flex-col gap-3 font-mono text-xs">
@@ -261,7 +260,7 @@ export function RQ3Chart({ onSelectWitnesses }: ChartProps) {
               <tr key={lvl} className="border-b" style={{ borderColor: "var(--rule)" }}>
                 <td className="p-2 border-r font-bold" style={{ borderColor: "var(--rule)" }}>{lvl}</td>
                 {sources.map((src, sIdx) => {
-                  const cell = RQ3_ABLATION_DATA.find((c) => c.anchorLevel === lvl && c.source === src);
+                  const cell = data.cells.find((c) => c.anchorLevel === lvl && c.source === src);
                   const val = cell?.accuracy ?? 0;
                   const intensity = Math.min(1, Math.max(0.2, (val - 40) / 60));
 
@@ -291,8 +290,8 @@ export function RQ3Chart({ onSelectWitnesses }: ChartProps) {
 }
 
 // ── RQ4: Correlation Heatmap Coder x Spec on SILENT_FAULT ────────────────────
-export function RQ4Chart({ onSelectWitnesses }: ChartProps) {
-  const models = ["GPT-4o", "Claude-3.5-S", "DeepSeek-V3", "Qwen-2.5-C"];
+export function RQ4Chart({ data, onSelectWitnesses }: ChartProps<"rq4">) {
+  const models = uniqueInOrder(data.cells.flatMap((c) => [c.coder, c.spec]));
 
   return (
     <div data-testid="rq4-chart" className="flex flex-col gap-3 font-mono text-xs">
@@ -320,7 +319,7 @@ export function RQ4Chart({ onSelectWitnesses }: ChartProps) {
               <tr key={cIdx} className="border-b" style={{ borderColor: "var(--rule)" }}>
                 <td className="p-2 border-r font-bold" style={{ borderColor: "var(--rule)" }}>{coder}</td>
                 {models.map((spec, sIdx) => {
-                  const cell = RQ4_CORRELATION_DATA.find((c) => c.coder === coder && c.spec === spec);
+                  const cell = data.cells.find((c) => c.coder === coder && c.spec === spec);
                   const rate = cell?.silentFaultRate ?? 0;
                   const isHomogeneous = cell?.isHomogeneous;
 
@@ -351,12 +350,12 @@ export function RQ4Chart({ onSelectWitnesses }: ChartProps) {
 }
 
 // ── RQ5: 5a–5d Repair Metrics Suite & UNKNOWN_GATE Breakdown ──────────────────
-export function RQ5Chart({ onSelectWitnesses }: ChartProps) {
+export function RQ5Chart({ data, onSelectWitnesses }: ChartProps<"rq5">) {
   return (
     <div data-testid="rq5-chart" className="flex flex-col gap-5 font-mono text-xs">
       {/* 4-chart suite cards (5a-5d) */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-        {RQ5_SUITE.map((metric) => (
+        {data.suite.map((metric) => (
           <div
             key={metric.key}
             data-testid={`rq5-metric-${metric.key}`}
@@ -381,7 +380,7 @@ export function RQ5Chart({ onSelectWitnesses }: ChartProps) {
         </span>
 
         <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
-          {UNKNOWN_GATE_BREAKDOWN.map((item) => (
+          {data.unknownGateBreakdown.map((item) => (
             <div
               key={item.check}
               data-testid={`unknown-gate-breakdown-${item.check}`}
@@ -408,7 +407,7 @@ export function RQ5Chart({ onSelectWitnesses }: ChartProps) {
 }
 
 // ── RQ6: Risk-Coverage-Query Trade-off Pareto ────────────────────────────────
-export function RQ6Chart({ onSelectWitnesses }: ChartProps) {
+export function RQ6Chart({ data, onSelectWitnesses }: ChartProps<"rq6">) {
   return (
     <div data-testid="rq6-chart" className="flex flex-col gap-4 font-mono text-xs">
       <span className="font-semibold" style={{ color: "var(--ink)" }}>
@@ -425,7 +424,7 @@ export function RQ6Chart({ onSelectWitnesses }: ChartProps) {
           <text x="5" y="20" fill="var(--ink-soft)" fontSize="9">Residual Risk</text>
           <text x="440" y="145" fill="var(--ink-soft)" fontSize="9">Số câu hỏi (q)</text>
 
-          {RQ6_STRATEGIES.map((strat, sIdx) => {
+          {data.strategies.map((strat, sIdx) => {
             const color =
               strat.id === "active_adjudicated"
                 ? "var(--action)"

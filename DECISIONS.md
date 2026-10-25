@@ -1,4 +1,4 @@
-# DECISIONS.md — Adjudicator Lab
+# DECISIONS.md — SpecGate
 
 > **Mục đích:** Ghi lại các quyết định kiến trúc và thiết kế quan trọng trong dự án.  
 > Mỗi mục theo mẫu: **Bối cảnh · Quyết định · Lý do**.  
@@ -217,6 +217,27 @@ Văn bản giao diện cần chuẩn hóa tiếng Việt nhất quán, đồng t
 
 **Quyết định:**  
 Tập trung toàn bộ text trong `src/i18n/vi.ts`. Giữ nguyên thuật ngữ: witness, verdict, anchor, repair, Gate, provenance, c-state, ValueCompare, Docket Strip. Không dùng chuỗi cứng trong JSX.
+
+---
+
+### ADR-012: Bỏ mock backend; `/api/*` chỉ proxy sang backend thật
+
+**Ngày:** 2026-10-25  
+**Trạng thái:** Accepted (thay thế ý “API Routes làm mock backend” trong ADR-001)
+
+**Bối cảnh:**  
+Các Route Handler cũ trả dữ liệu fixture (`src/mock/*`, hằng số RQ trong `src/reporting/results-data.ts`) và UI có run/case ID viết cứng. Kết quả hiển thị trông như số liệu thật dù không phải.
+
+**Quyết định:**  
+- Xoá `src/mock/`, các Route Handler nghiệp vụ, `src/core/evaluation-store.ts`, `src/core/evaluation-metrics.ts` và `src/config/dataset.ts`.
+- Chỉ giữ `src/app/api/[...path]/route.ts`, chuyển mọi request sang `BACKEND_URL` (`src/lib/server/backend-proxy.ts`). JSON trả về vẫn qua `stripGrading()`.
+- Hợp đồng FE ↔ BE nằm ở `api.md` và `src/lib/api/types.ts`.
+- Chức năng backend chưa có engine thì trả 501, UI hiện “Chức năng chưa khả dụng” và không bao giờ thay bằng số liệu minh hoạ.
+- Run hiện hành lấy từ URL hoặc `GET /api/runs/current` (`RunGate`), không có ID mặc định.
+
+**Hệ quả:**  
+- App không chạy độc lập được nữa: cần backend và `BACKEND_URL` (thiếu thì `/api/*` trả 503).
+- Test UI giả lập backend ở tầng `fetch` bằng `tests/fixtures/api.ts`. Fixture chỉ nằm trong `tests/`, app không import.
 
 ---
 

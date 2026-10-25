@@ -3,33 +3,51 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import {
+  BookOpen,
+  FlaskConical,
+  Gauge,
+  Menu,
+  Microscope,
+  PenLine,
+  RotateCcw,
+  Search,
+  Settings,
+  ShieldCheck,
+  X,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
 import { i18n } from "@/i18n/vi";
+import { SpecGateLogo } from "./SpecGateLogo";
 
 interface NavItem {
   key: keyof typeof i18n.navigation;
   href: string;
-  icon: string;
+  icon: LucideIcon;
   badge?: string;
+  /** Mục gắn với run: có run hiện hành thì trỏ tới /runs/{runId}{href}. */
+  runScoped?: boolean;
 }
 
 const NAV_ITEMS: readonly NavItem[] = [
-  { key: "library", href: "/library", icon: "📚" },
-  { key: "admission", href: "/runs/run_evalplus_01/admission", icon: "🛡️" },
-  { key: "workbench", href: "/lab", icon: "🔬" },
-  { key: "annotate", href: "/annotate", icon: "✏️" },
-  { key: "evidence", href: "/evidence", icon: "🔍" },
-  { key: "revocation", href: "/revocation", icon: "🔄" },
-  { key: "experiments", href: "/experiments", icon: "⚗️" },
-  { key: "results", href: "/results", icon: "📊" },
-  { key: "faultInjection", href: "/fault-injection", icon: "⚡" },
-  { key: "settings", href: "/settings", icon: "⚙️" },
+  { key: "library", href: "/library", icon: BookOpen },
+  { key: "admission", href: "/admission", icon: ShieldCheck, runScoped: true },
+  { key: "workbench", href: "/lab", icon: Microscope },
+  { key: "annotate", href: "/annotate", icon: PenLine },
+  { key: "evidence", href: "/evidence", icon: Search },
+  { key: "revocation", href: "/revocation", icon: RotateCcw },
+  { key: "experiments", href: "/experiments", icon: FlaskConical },
+  { key: "results", href: "/results", icon: Gauge },
+  { key: "faultInjection", href: "/fault-injection", icon: Zap },
+  { key: "settings", href: "/settings", icon: Settings },
 ];
 
 export interface SidebarProps {
   currentRunId?: string;
 }
 
-export function Sidebar({ currentRunId = "run_evalplus_01" }: SidebarProps) {
+export function Sidebar({ currentRunId }: SidebarProps) {
   const pathname = usePathname();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
@@ -47,7 +65,10 @@ export function Sidebar({ currentRunId = "run_evalplus_01" }: SidebarProps) {
         role="button"
         aria-label="Chuyển đổi menu điều hướng"
       >
-        {isMobileOpen ? "✕ Đóng" : "☰ Menu"}
+        <span className="inline-flex items-center gap-1.5">
+          {isMobileOpen ? <X size={14} aria-hidden="true" /> : <Menu size={14} aria-hidden="true" />}
+          {isMobileOpen ? "Đóng" : "Menu"}
+        </span>
       </div>
 
       {/* Mobile backdrop */}
@@ -78,9 +99,9 @@ export function Sidebar({ currentRunId = "run_evalplus_01" }: SidebarProps) {
             color: "var(--ink)",
           }}
         >
-          <span className="text-base mr-2">⚖️</span>
+          <SpecGateLogo size={22} className="mr-2 shrink-0" />
           <span className="inline min-[900px]:hidden min-[1200px]:inline truncate">
-            ADJUDICATOR LAB
+            {i18n.app.title}
           </span>
         </div>
 
@@ -88,7 +109,8 @@ export function Sidebar({ currentRunId = "run_evalplus_01" }: SidebarProps) {
         <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-1">
           {NAV_ITEMS.map((item) => {
             const label = i18n.navigation[item.key];
-            const resolvedHref = item.href.replace("run_evalplus_01", currentRunId);
+            const Icon = item.icon;
+            const resolvedHref = item.runScoped && currentRunId ? `/runs/${currentRunId}${item.href}` : item.href;
             const safePath = pathname || "";
             const isActive =
               safePath === resolvedHref ||
@@ -112,7 +134,7 @@ export function Sidebar({ currentRunId = "run_evalplus_01" }: SidebarProps) {
                   borderLeft: isActive ? "3px solid var(--action)" : "3px solid transparent",
                 }}
               >
-                <span className="text-base shrink-0">{item.icon}</span>
+                <Icon size={16} strokeWidth={1.8} className="shrink-0" aria-hidden="true" />
                 <span className="inline min-[900px]:hidden min-[1200px]:inline truncate">
                   {label}
                 </span>
@@ -142,7 +164,7 @@ export function Sidebar({ currentRunId = "run_evalplus_01" }: SidebarProps) {
           }}
         >
           <span className="inline min-[900px]:hidden min-[1200px]:inline">
-            v1.4 Formal Lab
+            SpecGate v1.4
           </span>
           <span className="hidden min-[900px]:inline min-[1200px]:hidden">
             v1.4

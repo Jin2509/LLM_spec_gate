@@ -12,8 +12,6 @@ const config: KnipConfig = {
   ignore: [
     "src/**/*.test.{ts,tsx}",
     "src/**/*.spec.{ts,tsx}",
-    // Placeholder files will be removed as modules are implemented
-    "src/**/placeholder.ts",
   ],
   ignoreDependencies: [
     // Needed by Next.js but not directly imported

@@ -188,7 +188,7 @@ function TypeScaleRow({
           lineHeight: 1.5,
         }}
       >
-        Bộ mẫu thử nghiệm · Adjudicator Lab
+        Bộ mẫu thử nghiệm · SpecGate
       </span>
       <span
         style={{
@@ -270,7 +270,7 @@ export default function DevKitPage() {
       >
         <div>
           <h1 style={{ margin: 0, fontSize: "16px", fontWeight: 600, color: "var(--ink)" }}>
-            Adjudicator Lab — Dev Kit
+            SpecGate — Dev Kit
           </h1>
           <p style={{ margin: "2px 0 0", fontSize: "12px", color: "var(--ink-soft)", fontFamily: "var(--font-mono)" }}>
             Design token visual regression · S1

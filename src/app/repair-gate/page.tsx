@@ -1,5 +1,11 @@
-import RepairGatePage from "@/app/runs/[runId]/cases/[caseId]/repair-gate/page";
+import { Suspense } from "react";
+import { PageFallback } from "@/ui/layout";
+import { RepairGateScreen } from "@/features/repair-gate";
 
 export default function DefaultRepairGatePage() {
-  return <RepairGatePage />;
+  return (
+    <Suspense fallback={<PageFallback label="Đang tải Không gian sửa đổi..." />}>
+      <RepairGateScreen />
+    </Suspense>
+  );
 }

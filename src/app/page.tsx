@@ -1,5 +1,11 @@
-import { ChatTestbed } from "@/ui/chat";
+import { Suspense } from "react";
+import { PageFallback } from "@/ui/layout";
+import { ChatScreen } from "@/features/chat";
 
 export default function Home() {
-  return <ChatTestbed initialCaseId="case_spec_fault" runId="run_evalplus_01" />;
+  return (
+    <Suspense fallback={<PageFallback label="Đang tải phiên kiểm thử..." />}>
+      <ChatScreen />
+    </Suspense>
+  );
 }

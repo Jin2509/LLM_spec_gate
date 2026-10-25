@@ -8,13 +8,26 @@
  *   4. Import global styles (tokens → tailwind → resets)
  */
 import type { Metadata } from "next";
+import { Roboto, Roboto_Mono } from "next/font/google";
 import { themeInitScript } from "./theme-init";
 import "../styles/globals.css";
 
+const roboto = Roboto({
+  subsets: ["latin", "vietnamese"],
+  variable: "--font-roboto",
+  display: "swap",
+});
+
+const robotoMono = Roboto_Mono({
+  subsets: ["latin", "vietnamese"],
+  variable: "--font-roboto-mono",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "Adjudicator Lab",
+  title: "SpecGate",
   description:
-    "UI testbed for Adjudicated Dual-Oracle Monitoring — interactive research verification environment.",
+    "SpecGate — UI testbed for Adjudicated Dual-Oracle Monitoring, interactive research verification environment.",
 };
 
 export default function RootLayout({
@@ -23,7 +36,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" suppressHydrationWarning>
+    <html lang="vi" className={`${roboto.variable} ${robotoMono.variable}`} suppressHydrationWarning>
       <head>
         {/*
          * Anti-FOUC inline script — MUST execute before body renders.

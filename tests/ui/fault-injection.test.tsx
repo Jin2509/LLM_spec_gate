@@ -1,13 +1,16 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import React from "react";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import FaultInjectionPage from "@/app/fault-injection/page";
+import { mockApi } from "../helpers/api-routes";
+import { FAULT_INJECTION_STATE } from "../fixtures/api";
 
 describe("Fault Injection Dashboard UI", () => {
-  it("renders all 3 injection zones and theoretical limit caveat", () => {
+  it("renders all 3 injection zones and theoretical limit caveat", async () => {
+    mockApi({ "GET /api/fault-injection": FAULT_INJECTION_STATE });
     render(<FaultInjectionPage />);
 
-    expect(screen.getByTestId("fault-zone-1")).toBeDefined();
+    expect(await screen.findByTestId("fault-zone-1")).toBeDefined();
     expect(screen.getByTestId("fault-zone-2")).toBeDefined();
     expect(screen.getByTestId("fault-zone-3")).toBeDefined();
 
@@ -15,24 +18,40 @@ describe("Fault Injection Dashboard UI", () => {
     expect(caveat.textContent).toContain("CHÚ THÍCH CỐ ĐỊNH VỀ GIỚI HẠN LÝ THUYẾT CỦA NGUỒN SAI");
   });
 
-  it("updates metrics when running perturbation test", async () => {
-    vi.useFakeTimers();
+  it("sends the selected profile and renders metrics returned by the API", async () => {
+    let sentProfile: unknown;
+    mockApi({
+      "GET /api/fault-injection": FAULT_INJECTION_STATE,
+      "POST /api/fault-injection": ({ body }) => {
+        sentProfile = body;
+        return {
+          profile: body,
+          metrics: { misattributionRate: 14.8, faultyPatchSlipRate: 1.2, gateBlockedCount: 49, totalInjections: 50 },
+          ranAt: "2026-10-12T00:00:00Z",
+        };
+      },
+    });
     render(<FaultInjectionPage />);
 
-    const runBtn = screen.getByTestId("run-injection-btn");
-    fireEvent.click(runBtn);
+    expect((await screen.findByTestId("metric-misattribution-rate")).textContent).toBe("2.4%");
+    fireEvent.click(screen.getByTestId("run-injection-btn"));
 
-    // Fast-forward simulation timer
-    act(() => {
-      vi.advanceTimersByTime(500);
+    await screen.findByText("14.8%");
+    expect(screen.getByTestId("metric-patch-slip-rate").textContent).toBe("1.2%");
+    expect(sentProfile).toEqual(FAULT_INJECTION_STATE.defaults);
+  });
+
+  it("reports 501 as an unavailable engine instead of fabricating metrics", async () => {
+    mockApi({
+      "GET /api/fault-injection": FAULT_INJECTION_STATE,
+      "POST /api/fault-injection": { status: 501, body: { error: "Engine tiêm lỗi chưa được cấu hình." } },
     });
+    render(<FaultInjectionPage />);
+    await screen.findByTestId("fault-zone-1");
 
-    const misattr = screen.getByTestId("metric-misattribution-rate");
-    expect(misattr).toBeDefined();
+    fireEvent.click(screen.getByTestId("run-injection-btn"));
 
-    const slip = screen.getByTestId("metric-patch-slip-rate");
-    expect(slip).toBeDefined();
-
-    vi.useRealTimers();
+    expect((await screen.findByTestId("feature-unavailable")).textContent).toContain("Engine tiêm lỗi chưa được cấu hình.");
+    expect(screen.getByTestId("metric-misattribution-rate").textContent).toBe("2.4%");
   });
 });

@@ -1,5 +1,6 @@
 "use client";
 
+import { ChartColumn, Search, Table2, TriangleAlert, X } from "lucide-react";
 import React, { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/ui/primitives/Button";
@@ -11,6 +12,8 @@ import {
 } from "@/reporting/results-data";
 
 export interface ChartContainerProps {
+  /** Run chứa các witness — dùng cho link "Mở Docket". */
+  runId: string;
   rqId: string;
   title: string;
   sampleSize: number;
@@ -24,6 +27,7 @@ export interface ChartContainerProps {
 }
 
 export function ChartContainer({
+  runId,
   rqId,
   title,
   sampleSize,
@@ -114,7 +118,7 @@ export function ChartContainer({
               color: "var(--ink)",
             }}
           >
-            {viewMode === "chart" ? "📋 Xem dạng bảng" : "📊 Xem dạng biểu đồ"}
+            {viewMode === "chart" ? <><Table2 size={14} className="inline-block shrink-0 align-[-2px]" aria-hidden="true" /> Xem dạng bảng</> : <><ChartColumn size={14} className="inline-block shrink-0 align-[-2px]" aria-hidden="true" /> Xem dạng biểu đồ</>}
           </button>
 
           {/* Export Buttons */}
@@ -150,7 +154,7 @@ export function ChartContainer({
             color: "var(--v-spec)",
           }}
         >
-          ⚠️ Cỡ mẫu n = {sampleSize} quá nhỏ (ngưỡng tối thiểu n ≥ 30). Hệ thống không vẽ đường spline làm mượt giả mạo.
+          <TriangleAlert size={14} className="inline-block shrink-0 align-[-2px]" aria-hidden="true" /> Cỡ mẫu n = {sampleSize} quá nhỏ (ngưỡng tối thiểu n ≥ 30). Hệ thống không vẽ đường spline làm mượt giả mạo.
         </div>
       )}
 
@@ -205,7 +209,7 @@ export function ChartContainer({
           <div className="flex items-center justify-between pb-1.5 border-b" style={{ borderColor: "var(--rule)" }}>
             <div className="flex items-center gap-2">
               <span className="font-bold" style={{ color: "var(--ink)" }}>
-                🔍 Danh sách Witness Liên quan ({selectedWitnesses.length} ca)
+                <Search size={14} className="inline-block shrink-0 align-[-2px]" aria-hidden="true" /> Danh sách Witness Liên quan ({selectedWitnesses.length} ca)
               </span>
             </div>
             <button
@@ -217,7 +221,7 @@ export function ChartContainer({
                 color: "var(--ink-soft)",
               }}
             >
-              ✕ Đóng
+              <X size={14} className="inline-block shrink-0 align-[-2px]" aria-hidden="true" /> Đóng
             </button>
           </div>
 
@@ -254,7 +258,7 @@ export function ChartContainer({
                 </div>
 
                 <Link
-                  href={`/runs/run_evalplus_01/workbench?caseId=${w.caseId}`}
+                  href={`/runs/${encodeURIComponent(runId)}/workbench?caseId=${encodeURIComponent(w.caseId)}`}
                   data-testid={`open-docket-btn-${w.caseId}`}
                   className="px-2.5 py-1 rounded text-xs font-bold hover:underline flex items-center gap-1 cursor-pointer"
                   style={{

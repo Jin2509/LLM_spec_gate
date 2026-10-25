@@ -12,6 +12,7 @@
  */
 "use client";
 
+import { TriangleAlert } from "lucide-react";
 import React, { useState } from "react";
 import type { HumanQueryTicket, Verdict } from "@/core/types";
 import { i18n } from "@/i18n/vi";
@@ -157,7 +158,7 @@ export function QueryTicket({
             fontFamily: "var(--font-mono)",
           }}
         >
-          ⚠️ <strong>{i18n.verdicts.UNKNOWN_GATE}:</strong> {i18n.ticket.unknownGateForbidden}
+          <TriangleAlert size={14} className="inline-block shrink-0 align-[-2px]" aria-hidden="true" /> <strong>{i18n.verdicts.UNKNOWN_GATE}:</strong> {i18n.ticket.unknownGateForbidden}
         </div>
       )}
 
