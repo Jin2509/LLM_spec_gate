@@ -36,9 +36,9 @@ Giao diện chỉ còn một trang hỏi đáp (`/`) thay cho các màn vòng đ
 
 | # | Method | Path | Front-end dùng ở |
 |---|---|---|---|
-| 0 | POST | `/api/run` (SSE) | `ChatScreen` → `useChatRun` (trang Hỏi đáp) |
-| 1 | GET | `/api/datasets` | — *(UI không còn gọi; backend vẫn giữ)* |
-| 2 | POST | `/api/datasets` | — *(UI không còn gọi; backend vẫn giữ)* |
+| 0 | POST | `/api/run`, `/api/run/followup` (SSE) | `ChatScreen` → `useChatRun` (trang Hỏi đáp) |
+| 1 | GET | `/api/datasets` | `DatasetPicker` (trang Hỏi đáp) |
+| 2 | POST | `/api/datasets` | `DatasetPicker` (tải JSONL) |
 | 3 | GET | `/api/datasets/{datasetId}/tasks` | — *(UI không còn gọi; backend vẫn giữ)* |
 | 4 | GET | `/api/runs` | `HistoryScreen` |
 | 5 | POST | `/api/runs` | — *(UI không còn gọi; backend vẫn giữ)* |
@@ -81,38 +81,48 @@ Giao diện chỉ còn một trang hỏi đáp (`/`) thay cho các màn vòng đ
 
 ---
 
-## 0. Hỏi đáp — `POST /api/run` (SSE)
+## 0. Hỏi đáp — `POST /api/run`, `POST /api/run/followup` (SSE)
 
-Người dùng gõ yêu cầu **một lần**; backend sinh đặc tả bằng LLM đặc tả, sinh code bằng LLM code (độc lập, từ cùng yêu cầu), đối chiếu rồi trả kết luận. Không trạng thái, không ghi DB.
+Luồng của trang Hỏi đáp (`/`):
 
-Request:
+1. Người dùng chọn **dataset + tác vụ** (1.1, upload bằng 1.2) và nhập key của 2 LLM. Không phải gõ gì.
+2. `POST /api/run`: backend đọc tác vụ, sinh đặc tả bằng LLM đặc tả, sinh code bằng LLM code (độc lập), đối chiếu rồi trả kết luận. Không ghi DB.
+3. Chỉ khi kết luận là `unknown`, backend kèm `question`. UI hiện câu hỏi và mở ô trả lời **đúng một lần**.
+4. `POST /api/run/followup`: đối chiếu lại với câu trả lời; kết luận trả về là **cuối cùng** (không bao giờ kèm `question`).
+
+`POST /api/run`:
 
 ```json
 {
-  "intent": "Viết hàm median(xs) …",
+  "datasetId": "ds_…", "taskId": "t_median",
   "llmSpec": { "provider": "openai" | "anthropic", "model": "gpt-4o-mini", "apiKey": "sk-…" },
   "llmCode": { "provider": "openai" | "anthropic", "model": "claude-sonnet-5-5", "apiKey": "sk-ant-…" }
 }
 ```
 
-Body sai (thiếu key, provider lạ, trường lạ, `intent` rỗng) → **400** `VALIDATION_ERROR`, thông điệp không chứa key.
+`POST /api/run/followup`:
 
-Response `text/event-stream`, theo thứ tự:
+```json
+{ "datasetId": "ds_…", "taskId": "t_median", "llmSpec": { … }, "spec": "<đặc tả vòng 1>", "code": "<code vòng 1>", "answer": "<câu trả lời>" }
+```
+
+- Body sai → **400** `VALIDATION_ERROR` (không chứa key). Dataset/tác vụ không tồn tại → **404** `NOT_FOUND`.
+- Response `text/event-stream`, theo thứ tự:
 
 | event | data |
 |---|---|
-| `step` | `{ step: "spec" \| "code" \| "check", status: "running" }` |
+| `step` | `{ step: "spec" \| "code" \| "check", status: "running" }` (vòng hỏi lại chỉ có `check`) |
 | `step` | `{ step, status: "done", output: string, durationMs: number }` |
-| `verdict` | `{ verdict: "consistent" \| "spec_fault" \| "code_fault" \| "unknown", reason: string }` — sự kiện cuối |
+| `verdict` | `{ verdict: "consistent" \| "spec_fault" \| "code_fault" \| "unknown", reason: string, question?: string }` — sự kiện cuối |
 | `error` | `{ message: string, step? }` — sự kiện cuối khi lỗi; không bao giờ chứa key |
 
-- Kết luận do backend quyết định (`app/judge.py`, hiện là pipeline tạm chờ logic bài báo). UI chỉ ánh xạ `verdict` → nhãn/màu.
+- Hỏi hay không, hỏi gì và kết luận ra sao do backend quyết định (`app/judge.py`, pipeline tạm chờ logic bài báo). UI chỉ hiển thị.
 - Key: UI giữ trong state React của tab (`LlmConfigProvider` ở root layout), không ghi localStorage/sessionStorage/IndexedDB.
 
 ## 1. Datasets & Tasks
 
 ### 1.1 `GET /api/datasets`
-Danh sách dataset, mỗi dataset kèm toàn bộ task. Dataset đầu tiên là mặc định trong `ChatTestbed`; tên và phiên bản hiện ở badge và ô chọn dataset.
+Danh sách dataset, mỗi dataset kèm toàn bộ task. Dùng cho dòng chọn dataset + tác vụ ở trang Hỏi đáp (`DatasetPicker`).
 
 **200** `DatasetListResponse`
 ```ts
@@ -543,8 +553,8 @@ Backend lưu bền vững và kiểm tra `defaultCoderModel`/`defaultSpecModel` 
 src/app/                 route mỏng: page.tsx chỉ render Screen; layout.tsx gắn <Providers> (cấu hình LLM)
   api/[...path]/route.ts proxy duy nhất → src/lib/server/backend-proxy.ts → ${BACKEND_URL}
 src/lib/api/
-  client.ts              apiRequest, readSse, ApiError, withQuery, toDisplayError (giữ status 501)
-  endpoints.ts           api.{chat,runs,stats,evidence,results,experiments,faultInjection,settings}
+  client.ts              apiRequest, apiRequestText, readSse, ApiError, withQuery, toDisplayError (giữ status 501)
+  endpoints.ts           api.{chat,datasets,runs,stats,evidence,results,experiments,faultInjection,settings}
   types.ts               DTO — hợp đồng với backend
   use-api-query.ts       hook đọc dữ liệu (huỷ request cũ, reload, setData sau mutation, errorStatus)
 src/core/                kiểu dữ liệu thuần (không React/Next): types, schema, experiment, results
@@ -564,7 +574,7 @@ src/styles/              tokens.css (công thức OKLCH), globals.css
 | Feature | Screen | API |
 |---|---|---|
 | shell | `Topbar`, `RunGate` | 2.4, 2.6 |
-| chat | `ChatScreen` (`/`) | 0 |
+| chat | `ChatScreen` (`/`) | 0, 1.1, 1.2 |
 | evidence | `EvidenceScreen` | 7.1 |
 | results | `ResultsScreen` | 9.1 |
 | experiments | `ExperimentsScreen` | 10.1–10.4 |
@@ -576,6 +586,6 @@ src/styles/              tokens.css (công thức OKLCH), globals.css
 ## Phụ lục B — Kiểm thử hợp đồng
 
 - `tests/api/backend-proxy.test.ts`: proxy chuyển đúng method/path/query/body, trả 503 khi thiếu `BACKEND_URL`, 502 khi backend không kết nối được, giữ nguyên 501, truyền thẳng stream, lọc `grading`.
-- `tests/ui/chat.test.tsx`: trang Hỏi đáp gửi đúng body `POST /api/run`, hiển thị các bước và kết luận từ SSE, chỉ một lượt mỗi yêu cầu, không ghi key vào bộ nhớ trình duyệt.
+- `tests/ui/chat.test.tsx`: trang Hỏi đáp chọn dataset/tác vụ, gửi đúng body `POST /api/run`, không hỏi khi đã có kết luận, hỏi đúng một lần khi `unknown` (`POST /api/run/followup`), không ghi key vào bộ nhớ trình duyệt.
 - `tests/helpers/api-routes.ts` + `tests/fixtures/api.ts`: giả lập backend ở tầng `fetch` bằng response đúng hợp đồng này (fixture **chỉ** dùng trong test, app không import). Test UI kiểm tra cả trạng thái 501 “chưa khả dụng”.
 - Khi đổi hợp đồng: sửa `src/lib/api/types.ts`, rồi tới fixture test và tài liệu này.

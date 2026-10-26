@@ -1,5 +1,6 @@
 /**
- * Ô soạn yêu cầu kiểu LLM chat: Enter gửi, Shift + Enter xuống dòng, tự giãn chiều cao.
+ * Ô soạn kiểu LLM chat (dùng cho câu trả lời duy nhất khi hệ thống hỏi lại):
+ * Enter gửi, Shift + Enter xuống dòng, tự giãn chiều cao.
  */
 "use client";
 
@@ -18,6 +19,8 @@ export interface ChatComposerProps {
   /** Lý do chưa gửi được (ví dụ chưa nhập key); hiện dưới ô nhập. */
   blockedReason?: string;
 }
+
+const LABELS = { label: t.answerLabel, placeholder: t.answerPlaceholder, hint: t.answerHint, submit: t.send };
 
 export function ChatComposer({ value, onChange, onSubmit, onStop, running, blockedReason }: ChatComposerProps) {
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -43,7 +46,7 @@ export function ChatComposer({ value, onChange, onSubmit, onStop, running, block
         style={{ backgroundColor: "var(--bg-elevated)", borderColor: "var(--border-default)", boxShadow: "var(--shadow-md)" }}
       >
         <label htmlFor="chat-input" className="sr-only">
-          {t.inputLabel}
+          {LABELS.label}
         </label>
         <textarea
           id="chat-input"
@@ -58,7 +61,7 @@ export function ChatComposer({ value, onChange, onSubmit, onStop, running, block
               if (canSend) onSubmit();
             }
           }}
-          placeholder={t.placeholder}
+          placeholder={LABELS.placeholder}
           className="flex-1 min-w-0 resize-none bg-transparent py-2 text-[14.5px] leading-relaxed outline-none disabled:opacity-60"
           style={{ color: "var(--ink)" }}
         />
@@ -77,8 +80,8 @@ export function ChatComposer({ value, onChange, onSubmit, onStop, running, block
           <button
             type="submit"
             disabled={!canSend}
-            aria-label={t.send}
-            title={t.send}
+            aria-label={LABELS.submit}
+            title={LABELS.submit}
             data-testid="chat-send"
             className="grid place-items-center size-9 shrink-0 rounded-full cursor-pointer bg-[var(--accent)] text-[var(--on-accent)] transition-opacity disabled:opacity-35 disabled:cursor-not-allowed"
           >
@@ -87,7 +90,7 @@ export function ChatComposer({ value, onChange, onSubmit, onStop, running, block
         )}
       </div>
       <p className="m-0 px-2 text-[12px]" style={{ color: blockedReason ? "var(--v-spec)" : "var(--ink-soft)" }}>
-        {blockedReason ?? t.keyboardHint}
+        {blockedReason ?? LABELS.hint}
       </p>
     </form>
   );

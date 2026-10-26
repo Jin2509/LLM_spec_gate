@@ -67,6 +67,14 @@ export async function apiRequest<T>(path: string, init: ApiRequestInit = {}): Pr
   return data as T;
 }
 
+/** Gửi body dạng text thô (tệp JSONL). */
+export async function apiRequestText<T>(path: string, text: string): Promise<T> {
+  const response = await fetch(path, { method: "POST", headers: { "Content-Type": "application/x-ndjson" }, body: text });
+  const data = await readJson(response);
+  if (!response.ok) throw errorFrom(response.status, data);
+  return data as T;
+}
+
 /**
  * Đọc luồng SSE (`event: x` / `data: {...}`) của một POST; ném ApiError nếu backend từ chối request.
  * Mỗi sự kiện trả về dạng { event, data }.

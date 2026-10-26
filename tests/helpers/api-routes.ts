@@ -57,10 +57,3 @@ export function mockApi(routes: Record<string, Handler>) {
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
 }
-
-/** Dựng response NDJSON (mỗi phần tử một dòng JSON) như luồng phân xử của backend. */
-export function ndjson(events: unknown[]): Response {
-  return new Response(events.map((e) => JSON.stringify(e)).join("\n") + "\n", {
-    headers: { "Content-Type": "application/x-ndjson" },
-  });
-}

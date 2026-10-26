@@ -3,7 +3,7 @@
  *
  * Mọi kiểu ở đây được mô tả lại trong api.md để backend triển khai.
  */
-import type { AdvisorySource, ProvenanceSource } from "@/core/types";
+import type { AcademicTask, AdvisorySource, ProvenanceSource } from "@/core/types";
 import type { Metrics, Run } from "@/core/evaluation-types";
 import type { AnchorLevel, CostEstimate, ExperimentConfig, ExperimentManifest } from "@/core/experiment";
 import type {
@@ -32,19 +32,6 @@ export interface RunSummary {
   ticketsSpent: number;
   ticketsTotal: number;
   rejectedWritesCount: number;
-}
-export interface RunEvent {
-  seq: number;
-  event:
-    | "run_created"
-    | "admission_step"
-    | "admission_completed"
-    | "verdict"
-    | "heldout_locked"
-    | "repair_deployed"
-    | "patch_revoked";
-  data: Record<string, unknown>;
-  timestamp: string;
 }
 
 // ── Evidence records ────────────────────────────────────────────────────────
@@ -89,7 +76,24 @@ export interface SpecDebtItem {
   readonly recordedAt: string;
 }
 
-// ── Hỏi đáp: POST /api/run (SSE) ─────────────────────────────────────────────
+// ── Datasets ────────────────────────────────────────────────────────────────
+export interface DatasetSummary {
+  id: string;
+  name: string;
+  version: string;
+  taskCount: number;
+}
+export interface DatasetListResponse {
+  datasets: Array<DatasetSummary & { tasks: AcademicTask[] }>;
+}
+export interface DatasetUploadResponse {
+  success: boolean;
+  message?: string;
+  taskCount?: number;
+  errors?: Array<{ line: number; message: string; field?: string }>;
+}
+
+// ── Hỏi đáp: POST /api/run, /api/run/followup (SSE) ─────────────────────────
 export type LlmProvider = "openai" | "anthropic";
 /** Một LLM do người dùng chọn. `apiKey` chỉ đi trong body request, không lưu ở client hay server. */
 export interface LlmConfig {
@@ -97,11 +101,21 @@ export interface LlmConfig {
   model: string;
   apiKey: string;
 }
+/** Chạy một tác vụ của dataset: backend sinh đặc tả, sinh code rồi đối chiếu. */
 export interface ChatRequest {
   llmSpec: LlmConfig;
   llmCode: LlmConfig;
-  /** Yêu cầu người dùng gõ một lần duy nhất. */
-  intent: string;
+  datasetId: string;
+  taskId: string;
+}
+/** Lượt hỏi lại duy nhất khi kết luận là "unknown": gửi câu trả lời của người dùng cùng đặc tả/code vòng đầu. */
+export interface ChatFollowupRequest {
+  llmSpec: LlmConfig;
+  datasetId: string;
+  taskId: string;
+  spec: string;
+  code: string;
+  answer: string;
 }
 export type ChatStepId = "spec" | "code" | "check";
 /** Kết luận do backend quyết định; UI chỉ ánh xạ sang nhãn và màu. */
@@ -109,7 +123,8 @@ export type ChatVerdict = "consistent" | "spec_fault" | "code_fault" | "unknown"
 export type ChatEvent =
   | { event: "step"; data: { step: ChatStepId; status: "running" } }
   | { event: "step"; data: { step: ChatStepId; status: "done"; output: string; durationMs: number } }
-  | { event: "verdict"; data: { verdict: ChatVerdict; reason: string } }
+  /** `question` chỉ có khi backend cần hỏi lại người dùng (một lần). */
+  | { event: "verdict"; data: { verdict: ChatVerdict; reason: string; question?: string } }
   | { event: "error"; data: { message: string; step?: ChatStepId } };
 
 // ── Evaluation runs (lịch sử / thống kê) ────────────────────────────────────

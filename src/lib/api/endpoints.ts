@@ -4,10 +4,13 @@
  * Component KHÔNG gọi fetch trực tiếp; luôn đi qua `api.*` để hợp đồng
  * front-end ↔ back-end tập trung một chỗ (đối chiếu với api.md).
  */
-import { apiRequest, readSse, withQuery } from "./client";
+import { apiRequest, apiRequestText, readSse, withQuery } from "./client";
 import type {
   ChatEvent,
+  ChatFollowupRequest,
   ChatRequest,
+  DatasetListResponse,
+  DatasetUploadResponse,
   CurrentRunResponse,
   EvidenceStoreResponse,
   ExperimentOptionsResponse,
@@ -85,16 +88,28 @@ export const settingsApi = {
   update: (settings: LabSettings) => apiRequest<SettingsResponse>("/api/settings", { method: "PUT", body: settings }),
 };
 
-/** POST /api/run — một yêu cầu → đặc tả, code, kết luận (SSE). Key đi trong body, không lưu ở đâu. */
+export const datasetsApi = {
+  list: (signal?: AbortSignal) => apiRequest<DatasetListResponse>("/api/datasets", { signal }),
+  uploadJsonl: (jsonl: string) => apiRequestText<DatasetUploadResponse>("/api/datasets", jsonl),
+};
+
+function postSse(path: string, body: unknown, signal: AbortSignal) {
+  return readSse<ChatEvent>(
+    fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal }),
+  );
+}
+
+/** Hỏi đáp (SSE). Key đi trong body, không lưu ở đâu. */
 export const chatApi = {
-  run: (body: ChatRequest, signal: AbortSignal) =>
-    readSse<ChatEvent>(
-      fetch("/api/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal }),
-    ),
+  /** Chạy một tác vụ của dataset → đặc tả, code, kết luận. */
+  run: (body: ChatRequest, signal: AbortSignal) => postSse("/api/run", body, signal),
+  /** Lượt hỏi lại duy nhất sau kết luận "unknown"; kết luận trả về là cuối cùng. */
+  followup: (body: ChatFollowupRequest, signal: AbortSignal) => postSse("/api/run/followup", body, signal),
 };
 
 export const api = {
   chat: chatApi,
+  datasets: datasetsApi,
   runs: runsApi,
   stats: statsApi,
   evidence: evidenceApi,
