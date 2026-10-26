@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import React from "react";
 import { render, screen } from "@testing-library/react";
-import { ProvenanceTag } from "@/ui/domain/ProvenanceTag";
+import { ProvenanceTag } from "@/features/evidence/components/ProvenanceTag";
 
 describe("ProvenanceTag Component", () => {
   it("renders Grounded evidence with solid border and no advisory notice", () => {
@@ -21,6 +21,6 @@ describe("ProvenanceTag Component", () => {
     expect(tag.dataset.grounded).toBe("false");
     expect(tag.style.border).toContain("dashed");
     expect(notice).not.toBeNull();
-    expect(notice.textContent).toBe("không vào aggregator");
+    expect(notice.textContent).toBe("chỉ tham khảo");
   });
 });

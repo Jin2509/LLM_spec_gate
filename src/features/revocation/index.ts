@@ -1,1 +1,0 @@
-export { RevocationScreen } from "./RevocationScreen";

@@ -22,7 +22,7 @@ describe("Evidence Store Read-Only & Invariant Verification UI", () => {
     render(<EvidencePage />);
 
     const badge = await screen.findByTestId("disjointness-invariant-badge");
-    expect(badge.textContent).toContain("BẤT BIẾN G ∩ B = ∅: HỢP LỆ");
+    expect(badge.textContent).toContain("Kho G và B tách biệt");
   });
 
   it("STRICT INVARIANT: Tab G has zero input elements or edit buttons", async () => {

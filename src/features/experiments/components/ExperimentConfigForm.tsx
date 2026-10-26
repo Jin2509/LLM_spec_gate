@@ -2,25 +2,12 @@
 
 import { TriangleAlert } from "lucide-react";
 import React from "react";
-import type { AnchorLevel, ExperimentConfig, HumanOracleMode, UnknownMode } from "@/core/experiment";
-import type { GatePolicy } from "@/core/repair";
+import type { AnchorLevel, ExperimentConfig, GatePolicy, HumanOracleMode, UnknownMode } from "@/core/experiment";
 import type { ExperimentOptionsResponse } from "@/lib/api";
 import { Notice, Panel } from "@/ui/layout";
+import { Field, inputClass } from "@/ui/primitives/Field";
 
 export type EditableExperimentConfig = Omit<ExperimentConfig, "baselines"> & { baselines: string[] };
-
-const fieldStyle: React.CSSProperties = { backgroundColor: "var(--paper-ground)", borderColor: "var(--rule)", color: "var(--ink)" };
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block">
-      <span className="block mb-1 font-semibold" style={{ color: "var(--ink)" }}>
-        {label}
-      </span>
-      {children}
-    </label>
-  );
-}
 
 function Select<T extends string>({
   testId,
@@ -34,7 +21,7 @@ function Select<T extends string>({
   options: ReadonlyArray<{ value: string; label: string }>;
 }) {
   return (
-    <select data-testid={testId} value={value} onChange={(e) => onChange(e.target.value as T)} className="w-full p-2 rounded border" style={fieldStyle}>
+    <select data-testid={testId} value={value} onChange={(e) => onChange(e.target.value as T)} className={inputClass}>
       {options.map((o) => (
         <option key={o.value} value={o.value}>
           {o.label}
@@ -60,113 +47,112 @@ export function ExperimentConfigForm({ config, options, familyWarning, onChange 
     set("baselines", config.baselines.includes(baseline) ? config.baselines.filter((b) => b !== baseline) : [...config.baselines, baseline]);
 
   return (
-    <Panel testId="experiment-config-form" title="1. Tham số Cấu hình Thực nghiệm" aside="Bảo đảm Tất định qua Seed">
+    <Panel testId="experiment-config-form" title="Cấu hình" aside="Cùng cấu hình và seed cho cùng kết quả">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Field label="Tập dữ liệu (Dataset):">
-          <div className="flex items-center gap-2">
-            <Select
-              testId="dataset-select"
-              value={config.datasetId}
-              onChange={(v) => set("datasetId", v)}
-              options={options.datasets.map((d) => ({ value: d.id, label: d.name }))}
-            />
-            {dataset && (
-              <span className="px-2 py-2 rounded text-[11px] font-bold shrink-0" style={{ ...fieldStyle, border: "1px solid var(--rule)", color: "var(--v-spec)" }}>
-                Held-out: {Math.round(dataset.heldOutRatio * 100)}% {dataset.isHeldOutLocked ? "(Đã khóa)" : ""}
-              </span>
-            )}
-          </div>
+        <Field
+          label="Tập dữ liệu"
+          hint={dataset ? `Giữ lại ${Math.round(dataset.heldOutRatio * 100)}% tác vụ để đánh giá cuối${dataset.isHeldOutLocked ? " (đã khoá)" : ""}` : undefined}
+        >
+          <Select
+            testId="dataset-select"
+            value={config.datasetId}
+            onChange={(v) => set("datasetId", v)}
+            options={options.datasets.map((d) => ({ value: d.id, label: d.name }))}
+          />
         </Field>
-        <Field label="Seed ngẫu nhiên tất định:">
-          <input data-testid="seed-input" type="text" value={config.seed} onChange={(e) => set("seed", e.target.value)} className="w-full p-2 rounded border font-mono" style={fieldStyle} />
+        <Field label="Seed">
+          <input data-testid="seed-input" type="text" value={config.seed} onChange={(e) => set("seed", e.target.value)} className={`${inputClass} font-mono`} />
         </Field>
-        <Field label="Model Coder (Sinh mã):">
+        <Field label="Mô hình sinh code">
           <Select testId="coder-model-select" value={config.coderModel} onChange={(v) => set("coderModel", v)} options={models} />
         </Field>
-        <Field label="Model Spec (Sinh đặc tả / Monitor P0):">
+        <Field label="Mô hình sinh đặc tả">
           <Select testId="spec-model-select" value={config.specModel} onChange={(v) => set("specModel", v)} options={models} />
         </Field>
       </div>
 
       {familyWarning && (
-        <Notice tone="warning" dashed testId="homogeneous-bias-warning">
-          <TriangleAlert size={14} className="inline-block shrink-0 align-[-2px]" aria-hidden="true" /> {familyWarning}
+        <Notice tone="warning" testId="homogeneous-bias-warning">
+          <TriangleAlert size={14} className="inline-block align-[-2px] mr-1.5" aria-hidden="true" />
+          {familyWarning}
         </Notice>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2">
-        <Field label="Mức Anchor:">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <Field label="Mức nguồn tham chiếu">
           <Select<AnchorLevel>
             testId="anchor-level-select"
             value={config.anchorLevel}
             onChange={(v) => set("anchorLevel", v)}
             options={[
-              { value: "A0", label: "A0 (Không anchor)" },
-              { value: "A1", label: "A1 (Docstring duy nhất)" },
-              { value: "A2", label: "A2 (Docstring + MR)" },
-              { value: "A3", label: "A3 (Full Differential)" },
+              { value: "A0", label: "A0 · Không có" },
+              { value: "A1", label: "A1 · Docstring và MR" },
+              { value: "A2", label: "A2 · Thêm ràng buộc hình thức" },
+              { value: "A3", label: "A3 · Thêm bản tham chiếu" },
             ].filter((o) => options.anchorLevels.includes(o.value as AnchorLevel))}
           />
         </Field>
-        <Field label="Chính sách Triển khai:">
+        <Field label="Chính sách triển khai bản sửa">
           <Select<GatePolicy>
             testId="policy-select"
             value={config.policy}
             onChange={(v) => set("policy", v)}
             options={[
-              { value: "strict", label: "Strict (Chỉ Proof)" },
-              { value: "standard", label: "Standard (3 chế độ)" },
-              { value: "shadow", label: "Shadow (Chỉ ghi log)" },
+              { value: "standard", label: "Tiêu chuẩn" },
+              { value: "strict", label: "Nghiêm ngặt (chỉ bản đã chứng minh)" },
+              { value: "shadow", label: "Chạy ngầm (chỉ ghi nhận)" },
             ]}
           />
         </Field>
-        <Field label="Chế độ UNKNOWN:">
+        <Field label="Khi chưa kết luận được">
           <Select<UnknownMode>
             testId="unknown-mode-select"
             value={config.unknownMode}
             onChange={(v) => set("unknownMode", v)}
             options={[
-              { value: "closed", label: "Closed (Fail-closed)" },
-              { value: "open", label: "Open (Cho phép bypass)" },
+              { value: "closed", label: "Chặn lời gọi (an toàn)" },
+              { value: "open", label: "Cho qua kèm cảnh báo" },
             ]}
           />
         </Field>
-        <Field label="Human Oracle:">
+        <Field label="Người trả lời câu hỏi">
           <Select<HumanOracleMode>
             testId="human-oracle-select"
             value={config.humanOracle}
             onChange={(v) => set("humanOracle", v)}
             options={[
-              { value: "off", label: "Tắt (Off)" },
-              { value: "perfect", label: "Hoàn hảo (100% chuẩn)" },
-              { value: "noise_5", label: "Nhiễu 5%" },
-              { value: "noise_10", label: "Nhiễu 10%" },
-              { value: "real_human", label: "Người thật (Tương tác)" },
+              { value: "off", label: "Không hỏi" },
+              { value: "perfect", label: "Giả lập, luôn đúng" },
+              { value: "noise_5", label: "Giả lập, sai 5%" },
+              { value: "noise_10", label: "Giả lập, sai 10%" },
+              { value: "real_human", label: "Người thật" },
             ]}
           />
         </Field>
       </div>
 
-      <fieldset className="pt-2">
-        <legend className="block mb-2 font-semibold" style={{ color: "var(--ink)" }}>
-          Phương pháp Đối chứng (Baselines):
-        </legend>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-          {options.baselines.map((b) => {
-            const checked = config.baselines.includes(b);
-            return (
-              <label
-                key={b}
-                className="flex items-center gap-2 p-2 rounded border cursor-pointer"
-                style={{ backgroundColor: checked ? "var(--paper-ground)" : "transparent", borderColor: checked ? "var(--action)" : "var(--rule)" }}
-              >
-                <input type="checkbox" checked={checked} onChange={() => toggleBaseline(b)} />
-                <span>{b}</span>
-              </label>
-            );
-          })}
-        </div>
-      </fieldset>
+      {options.baselines.length > 0 && (
+        <fieldset className="m-0 p-0 border-0 flex flex-col gap-2">
+          <legend className="mb-2 text-[13px] font-medium" style={{ color: "var(--text-secondary)" }}>
+            Phương pháp đối chứng
+          </legend>
+          <div className="flex flex-wrap gap-2">
+            {options.baselines.map((b) => {
+              const checked = config.baselines.includes(b);
+              return (
+                <label
+                  key={b}
+                  className="inline-flex items-center gap-2 h-9 px-3 rounded-[var(--radius-sm)] border cursor-pointer text-[13px]"
+                  style={{ backgroundColor: checked ? "var(--accent-soft)" : "var(--bg-elevated)", borderColor: checked ? "var(--accent-line)" : "var(--border-default)" }}
+                >
+                  <input type="checkbox" checked={checked} onChange={() => toggleBaseline(b)} className="size-4 accent-[var(--accent)]" />
+                  <span className="font-mono">{b}</span>
+                </label>
+              );
+            })}
+          </div>
+        </fieldset>
+      )}
     </Panel>
   );
 }

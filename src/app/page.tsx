@@ -1,11 +1,8 @@
-import { Suspense } from "react";
-import { PageFallback } from "@/ui/layout";
+/**
+ * src/app/page.tsx — Trang hỏi đáp: một yêu cầu → đặc tả, code và kết luận.
+ */
 import { ChatScreen } from "@/features/chat";
 
 export default function Home() {
-  return (
-    <Suspense fallback={<PageFallback label="Đang tải phiên kiểm thử..." />}>
-      <ChatScreen />
-    </Suspense>
-  );
+  return <ChatScreen />;
 }

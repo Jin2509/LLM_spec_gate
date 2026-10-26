@@ -1,35 +1,41 @@
 /**
- * Ghi chú bảo mật — TUYỆT ĐỐI không thêm ô nhập API key ở client
- * (kiểm thử: tests/ui/settings-no-client-api-key.test.tsx).
+ * Ghi chú về API key. Trang Cài đặt KHÔNG có ô nhập key
+ * (kiểm thử: tests/ui/settings-no-client-api-key.test.tsx); key cho hỏi đáp nhập ở trang Hỏi đáp.
  */
 import { Lock } from "lucide-react";
+import Link from "next/link";
 import React from "react";
 
 export function ApiKeysNotice() {
   return (
-    <div
+    <section
       data-testid="api-keys-placeholder"
-      className="p-4 rounded border flex flex-col gap-2 font-mono text-xs"
-      style={{ backgroundColor: "var(--paper-ground)", borderColor: "var(--action)", borderWidth: "1.5px", borderRadius: "var(--r-card)" }}
+      className="px-5 py-4 rounded-[var(--radius-md)] border flex gap-3"
+      style={{ backgroundColor: "var(--accent-soft)", borderColor: "var(--accent-line)" }}
     >
-      <div className="flex items-center gap-2 font-bold" style={{ color: "var(--action)" }}>
-        <Lock size={14} className="inline-block shrink-0 align-[-2px]" aria-hidden="true" />
-        <span>BẢO MẬT API KEYS: CẤU HÌNH PHÍA SERVER (.env.local)</span>
-      </div>
-      <p className="m-0 leading-relaxed text-[11px]" style={{ color: "var(--ink)" }}>
-        Theo nguyên tắc an toàn dữ liệu khoa học, <strong>hệ thống tuyệt đối cấm lưu trữ API Key ở phía Client</strong> hoặc trong bộ nhớ
-        trình duyệt (localStorage/cookies). Mọi API key của nhà cung cấp mô hình (OpenAI, Anthropic, DeepSeek) phải được cấu hình qua biến môi
-        trường máy chủ:
-      </p>
-      <pre className="p-3 rounded border text-[11px] overflow-x-auto" style={{ backgroundColor: "var(--paper-surface)", borderColor: "var(--rule)", color: "var(--ink)" }}>
-        {`# Cấu hình tại .env.local trên máy chủ triển khai:
+      <Lock size={18} className="shrink-0 mt-0.5" aria-hidden="true" style={{ color: "var(--accent)" }} />
+      <div className="flex flex-col gap-2 min-w-0">
+        <h2 className="m-0 text-[14.5px] font-semibold" style={{ color: "var(--ink)" }}>
+          API key không được lưu ở đây
+        </h2>
+        <p className="m-0 text-[13px] leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+          Key của 2 LLM (sinh đặc tả, sinh code) nhập ở trang{" "}
+          <Link href="/" className="underline underline-offset-2" style={{ color: "var(--accent)" }}>
+            Hỏi đáp
+          </Link>
+          . Key chỉ nằm trong bộ nhớ của tab và được gửi kèm từng yêu cầu; giao diện{" "}
+          <strong>không lưu key vào trình duyệt</strong> và backend không ghi key vào cơ sở dữ liệu hay nhật ký.
+        </p>
+        <p className="m-0 text-[13px] leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+          Các lượt chạy thực nghiệm dùng key đặt trong biến môi trường của backend:
+        </p>
+        <pre
+          className="m-0 px-3 py-2.5 rounded-[var(--radius-sm)] text-[12px] overflow-x-auto"
+          style={{ backgroundColor: "var(--bg-elevated)", color: "var(--ink)" }}
+        >{`# .env của backend (spec_gate_backend)
 OPENAI_API_KEY="sk-..."
-ANTHROPIC_API_KEY="sk-ant-..."
-DEEPSEEK_API_KEY="sk-..."`}
-      </pre>
-      <span className="text-[10px] opacity-75" style={{ color: "var(--ink-soft)" }}>
-        Client chỉ giao tiếp qua các proxy an toàn (Route Handlers) đã được khử dữ liệu độc hại và loại bỏ trường grading.
-      </span>
-    </div>
+ANTHROPIC_API_KEY="sk-ant-..."`}</pre>
+      </div>
+    </section>
   );
 }

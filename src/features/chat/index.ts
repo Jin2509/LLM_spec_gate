@@ -1,2 +1,2 @@
-export { ChatTestbed, type ChatTestbedProps } from "./ChatTestbed";
 export { ChatScreen } from "./ChatScreen";
+export { LlmConfigProvider } from "./llm-config";

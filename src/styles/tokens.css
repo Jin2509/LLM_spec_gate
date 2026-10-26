@@ -1,169 +1,169 @@
 /**
  * src/styles/tokens.css — SpecGate Design Tokens
  *
- * CANONICAL source of all visual values.
- * ┌─────────────────────────────────────────────────────────────────────────┐
- * │  RULE: No HEX color may appear in any .tsx / .ts component file.       │
- * │  All colors MUST reference a CSS variable defined in this file.         │
- * └─────────────────────────────────────────────────────────────────────────┘
+ * Nguồn DUY NHẤT của mọi giá trị hình ảnh. Component không chứa mã màu HEX; chỉ dùng biến ở đây.
  *
- * Theme activation:
- *   Light: :root (default)
- *   Dark:  :root[data-theme="dark"]   ← set by theme-init.ts
+ * ── Công thức pha màu (OKLCH) ────────────────────────────────────────────────
+ *   màu(vai trò, tông) = oklch(L[tông]  C[tông]  H[vai trò])
+ *
+ *   - H (hue) chọn theo VAI TRÒ: thương hiệu, trung tính, và 5 trạng thái phân xử.
+ *   - L (độ sáng) và C (độ đậm) chọn theo TÔNG, dùng chung cho mọi vai trò:
+ *       solid  — chữ, icon, viền nhấn, nút      (đủ tương phản trên nền sáng/tối)
+ *       line   — viền nhạt của khối trạng thái
+ *       soft   — nền nhạt của khối trạng thái
+ *   Vì OKLCH đồng đều về cảm nhận, các màu khác hue nhưng cùng tông có độ sáng và độ nổi như nhau:
+ *   không màu trạng thái nào "lấn" màu khác, và tương phản chữ/nền giữ ổn định.
+ *   Dark mode chỉ đổi bảng L/C của tông, không chọn lại từng màu.
+ *   Trung tính dùng chroma rất thấp ngả về hue thương hiệu để nền và chữ "ăn" với màu nhấn.
+ *
+ * Theme: Light ở :root (mặc định) · Dark ở :root[data-theme="dark"] (do theme-init.ts đặt).
  */
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   LIGHT THEME (default)
-   ═══════════════════════════════════════════════════════════════════════════ */
 :root {
+  /* ── Hue theo vai trò ─────────────────────────────────────────────────── */
+  --hue-brand: 192;   /* ngọc lam: màu nhấn, logo */
+  --hue-ok: 150;      /* ACC / thành công */
+  --hue-spec: 72;     /* SPEC_FAULT / cảnh báo */
+  --hue-code: 27;     /* CODE_FAULT / lỗi */
+  --hue-dual: 305;    /* DUAL_FAULT */
+  --hue-info: 255;    /* thông tin, đang chạy */
 
-  /* ── New semantic aliases (tool-feel polish) ──────────────────────────── */
-  --bg-app:      #EDF0F2;   /* App background */
-  --bg-panel:    #F8F9FA;   /* Panel / sidebar surface */
-  --bg-elevated: #FFFFFF;   /* Elevated cards */
-  --bg-hover:    #E8EBF0;   /* Hover state */
+  /* ── Bảng L/C theo tông (light) ───────────────────────────────────────── */
+  --l-solid: 0.5;   --c-solid: 0.13;
+  --l-line: 0.86;   --c-line: 0.06;
+  --l-soft: 0.965;  --c-soft: 0.022;
 
-  --border-subtle:  #DEE2E8;  /* Hairline separators */
-  --border-default: #C5CDD5;  /* Standard borders */
+  /* ── Trung tính: chroma thấp, ngả hue thương hiệu ─────────────────────── */
+  --c-neutral: 0.008;
+  --bg-app:      oklch(0.975 var(--c-neutral) var(--hue-brand));
+  --bg-panel:    oklch(0.995 0.003 var(--hue-brand));
+  --bg-elevated: oklch(1 0 0);
+  --bg-hover:    oklch(0.95 0.012 var(--hue-brand));
+  --bg-sunken:   oklch(0.955 var(--c-neutral) var(--hue-brand));
 
-  --text-primary:   #16212B;  /* Main content */
-  --text-secondary: #374957;  /* Subheadings */
-  --text-muted:     #5B6A77;  /* Captions, timestamps */
+  --border-subtle:  oklch(0.93 0.008 var(--hue-brand));
+  --border-default: oklch(0.885 0.01 var(--hue-brand));
 
-  --accent:         #2F4BC0;  /* Single focus/selected accent */
+  --text-primary:   oklch(0.24 0.02 var(--hue-brand));
+  --text-secondary: oklch(0.4 0.02 var(--hue-brand));
+  --text-muted:     oklch(0.53 0.016 var(--hue-brand));
 
-  /* Status: semantic only — drives verdict + state indicators */
-  --status-code:   #B83A2E;   /* CODE_FAULT */
-  --status-spec:   #B8780A;   /* SPEC_FAULT */
-  --status-ok:     #1F7A52;   /* ACC */
-  --status-und:    #5B6A77;   /* UNKNOWN_* */
+  /* ── Màu nhấn (thương hiệu) ───────────────────────────────────────────── */
+  --accent:      oklch(var(--l-solid) var(--c-solid) var(--hue-brand));
+  --accent-soft: oklch(var(--l-soft) 0.03 var(--hue-brand));
+  --accent-line: oklch(var(--l-line) var(--c-line) var(--hue-brand));
+  --on-accent:   oklch(0.99 0.01 var(--hue-brand));
+  --focus-ring:  oklch(0.62 0.13 var(--hue-brand) / 0.45);
+  --overlay:     oklch(0.2 0.02 var(--hue-brand) / 0.4);
 
-  /* Radius system */
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
+  /* ── Màu phân xử: cùng tông, khác hue ─────────────────────────────────── */
+  --v-acc:        oklch(var(--l-solid) var(--c-solid) var(--hue-ok));
+  --v-acc-bg:     oklch(var(--l-soft) var(--c-soft) var(--hue-ok));
+  --v-acc-line:   oklch(var(--l-line) var(--c-line) var(--hue-ok));
 
-  /* Font stacks */
+  --v-spec:       oklch(var(--l-solid) var(--c-solid) var(--hue-spec));
+  --v-spec-bg:    oklch(var(--l-soft) var(--c-soft) var(--hue-spec));
+  --v-spec-line:  oklch(var(--l-line) var(--c-line) var(--hue-spec));
+
+  --v-code:       oklch(var(--l-solid) var(--c-solid) var(--hue-code));
+  --v-code-bg:    oklch(var(--l-soft) var(--c-soft) var(--hue-code));
+  --v-code-line:  oklch(var(--l-line) var(--c-line) var(--hue-code));
+
+  --v-dual:       oklch(var(--l-solid) var(--c-solid) var(--hue-dual));
+  --v-dual-bg:    oklch(var(--l-soft) var(--c-soft) var(--hue-dual));
+  --v-dual-line:  oklch(var(--l-line) var(--c-line) var(--hue-dual));
+
+  --v-info:       oklch(var(--l-solid) var(--c-solid) var(--hue-info));
+  --v-info-bg:    oklch(var(--l-soft) var(--c-soft) var(--hue-info));
+  --v-info-line:  oklch(var(--l-line) var(--c-line) var(--hue-info));
+
+  --v-unknown:    var(--text-muted);
+  --v-unknown-bg: transparent;
+  --v-neutral:    var(--text-muted);
+  --v-neutral-bg: var(--bg-sunken);
+
+  /* Trạng thái tổng quát (alias theo ngữ nghĩa) */
+  --status-ok:   var(--v-acc);
+  --status-spec: var(--v-spec);
+  --status-code: var(--v-code);
+  --status-und:  var(--v-unknown);
+
+  /* ── Hình khối ────────────────────────────────────────────────────────── */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --shadow-sm: 0 1px 2px oklch(0.3 0.02 var(--hue-brand) / 0.06);
+  --shadow-md: 0 1px 2px oklch(0.3 0.02 var(--hue-brand) / 0.05), 0 4px 16px oklch(0.3 0.02 var(--hue-brand) / 0.06);
+
+  /* ── Chữ ──────────────────────────────────────────────────────────────── */
   --font-sans: var(--font-roboto), Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   --font-mono: var(--font-roboto-mono), "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --font-ui: var(--font-sans);
 
-  /* ── Legacy aliases (kept for backward compat with existing components) ── */
+  /* ── Lưới 4px ─────────────────────────────────────────────────────────── */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-10: 40px;
+
+  /* ── Chuyển động ──────────────────────────────────────────────────────── */
+  --motion-quick: 140ms;
+  --motion-settle: 320ms;
+
+  /* ── Alias cũ (component hiện có vẫn dùng) ───────────────────────────── */
   --paper-ground:  var(--bg-app);
   --paper-surface: var(--bg-panel);
   --ink:           var(--text-primary);
   --ink-soft:      var(--text-muted);
   --rule:          var(--border-default);
   --action:        var(--accent);
-
-  /* ── Verdict Colors ───────────────────────────────────────────────────── */
-  --v-acc:         #1F7A52;
-  --v-acc-bg:      #EAF6EF;
-
-  --v-spec:        #B8780A;
-  --v-spec-bg:     #FEF5E6;
-
-  --v-code:        #B83A2E;
-  --v-code-bg:     #FDECEA;
-
-  --v-dual:        #6B3A94;
-  --v-dual-bg:     #F3ECFB;
-
-  --v-unknown:     #5B6A77;
-  --v-unknown-bg:  transparent;
-
-  --v-neutral:     #8A97A3;
-  --v-neutral-bg:  #F0F2F4;
-
-  /* ── Legacy radius aliases ────────────────────────────────────────────── */
   --r-cell:   var(--radius-sm);
   --r-card:   var(--radius-md);
-  --r-ticket: 12px;
-
-  /* ── 4-px spacing grid ────────────────────────────────────────────────── */
-  --s-1:   4px;
-  --s-2:   8px;
-  --s-3:  12px;
-  --s-4:  16px;
-  --s-5:  20px;
-  --s-6:  24px;
-  --s-10: 40px;
-
-  /* ── Motion ───────────────────────────────────────────────────────────── */
-  --motion-quick:  140ms;
-  --motion-settle: 320ms;
-
-  /* ── Font aliases ─────────────────────────────────────────────────────── */
-  --font-ui:   var(--font-sans);
-
-  /* ── UNKNOWN dashed border shorthand ─────────────────────────────────── */
+  --r-ticket: var(--radius-lg);
   --border-unknown: 1.5px dashed var(--v-unknown);
-
-  /* ── State colors (DocketStrip evalId lifecycle) ─────────────────────── */
-  --state-stale:   #7A6A1B;
-  --state-pending: #1A5FA0;
-  --state-running: #5A2D80;
+  --state-stale:   var(--v-spec);
+  --state-pending: var(--v-info);
+  --state-running: var(--v-dual);
   --state-done:    var(--v-acc);
   --state-error:   var(--v-code);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   DARK THEME
-   ═══════════════════════════════════════════════════════════════════════════ */
 :root[data-theme="dark"] {
+  /* Tông dark: chữ/viền sáng hơn, nền trạng thái tối và đậm hơn một chút. */
+  --l-solid: 0.78;  --c-solid: 0.12;
+  --l-line: 0.42;   --c-line: 0.07;
+  --l-soft: 0.27;   --c-soft: 0.045;
 
-  --bg-app:      #0F161C;
-  --bg-panel:    #17212A;
-  --bg-elevated: #1E2C38;
-  --bg-hover:    #1C2D3A;
+  --c-neutral: 0.012;
+  --bg-app:      oklch(0.17 var(--c-neutral) var(--hue-brand));
+  --bg-panel:    oklch(0.205 var(--c-neutral) var(--hue-brand));
+  --bg-elevated: oklch(0.235 var(--c-neutral) var(--hue-brand));
+  --bg-hover:    oklch(0.27 0.016 var(--hue-brand));
+  --bg-sunken:   oklch(0.185 var(--c-neutral) var(--hue-brand));
 
-  --border-subtle:  #222E3A;
-  --border-default: #2B3944;
+  --border-subtle:  oklch(0.27 0.012 var(--hue-brand));
+  --border-default: oklch(0.33 0.014 var(--hue-brand));
 
-  --text-primary:   #E3E9EE;
-  --text-secondary: #BAC8D4;
-  --text-muted:     #9AA8B4;
+  --text-primary:   oklch(0.95 0.008 var(--hue-brand));
+  --text-secondary: oklch(0.83 0.012 var(--hue-brand));
+  --text-muted:     oklch(0.7 0.014 var(--hue-brand));
 
-  --accent:         #7F95FF;
+  --accent-soft: oklch(0.29 0.045 var(--hue-brand));
+  --on-accent:   oklch(0.2 0.03 var(--hue-brand));
+  --focus-ring:  oklch(0.75 0.12 var(--hue-brand) / 0.5);
+  --overlay:     oklch(0.05 0.01 var(--hue-brand) / 0.6);
 
-  --status-code:   #F0766A;
-  --status-spec:   #E6A23C;
-  --status-ok:     #4CC38A;
-  --status-und:    #9AA8B4;
-
-  /* Verdict Colors (dark) */
-  --v-acc:         #4CC38A;
-  --v-acc-bg:      #0D2A1A;
-
-  --v-spec:        #E6A23C;
-  --v-spec-bg:     #2A1C05;
-
-  --v-code:        #F0766A;
-  --v-code-bg:     #2A0E0C;
-
-  --v-dual:        #B58AE0;
-  --v-dual-bg:     #1E0E30;
-
-  --v-unknown:     #9AA8B4;
-  --v-unknown-bg:  transparent;
-
-  --v-neutral:     #7A8895;
-  --v-neutral-bg:  #1C2830;
-
-  /* State colors */
-  --state-stale:   #C4A93A;
-  --state-pending: #5A9FE0;
-  --state-running: #A875D8;
-  --state-done:    var(--v-acc);
-  --state-error:   var(--v-code);
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.3);
+  --shadow-md: 0 1px 2px oklch(0 0 0 / 0.3), 0 6px 20px oklch(0 0 0 / 0.25);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   MOTION: Suppress all animations for users who prefer reduced motion
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* Giảm chuyển động khi người dùng yêu cầu */
 @media (prefers-reduced-motion: reduce) {
   :root {
-    --motion-quick:  0ms;
+    --motion-quick: 0ms;
     --motion-settle: 0ms;
   }
 

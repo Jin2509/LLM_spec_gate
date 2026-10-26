@@ -3,7 +3,7 @@
 import React from "react";
 import { ErrorState } from "@/ui/layout";
 import { api, errorMessage, useApiQuery } from "@/lib/api";
-import { EvalNav } from "@/features/evaluation/EvalNav";
+import { ShellPage } from "@/ui/shell/ShellPage";
 import { RunLogs, RunOutputs, RunTurns } from "./components/RunDetailSections";
 import { ReviewForm } from "./components/ReviewForm";
 
@@ -23,28 +23,26 @@ export function RunDetailScreen({ runId }: { runId: string }) {
 
   if (!run) {
     return (
-      <main className="eval-page">
-        {runQuery.error ? <ErrorState message={runQuery.error} onRetry={runQuery.reload} /> : "Đang tải phiên…"}
-      </main>
+      <ShellPage eyebrow="Lịch sử" title="Chi tiết phiên">
+        {runQuery.error ? <ErrorState message={runQuery.error} onRetry={runQuery.reload} /> : <p style={{ color: "var(--ink-soft)" }}>Đang tải phiên…</p>}
+      </ShellPage>
     );
   }
 
   return (
-    <main className="eval-page">
-      <EvalNav />
-      <header className="eval-header">
-        <div>
-          <h1>Chi tiết phiên</h1>
-          <p className="mono">{run.run_id}</p>
-        </div>
-        <span>
-          {run.dataset.id} · {run.dataset.version}
-        </span>
-      </header>
+    <ShellPage
+      eyebrow="Lịch sử"
+      title="Chi tiết phiên"
+      description={
+        <>
+          <span className="font-mono">{run.run_id}</span> · {run.dataset.id} · {run.dataset.version}
+        </>
+      }
+    >
       <RunOutputs run={run} />
       <RunTurns run={run} />
       <RunLogs run={run} />
       <ReviewForm key={run.run_id} initialNote={run.review?.note ?? ""} onSubmit={review} />
-    </main>
+    </ShellPage>
   );
 }

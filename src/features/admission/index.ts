@@ -1,1 +1,0 @@
-export { AdmissionScreen } from "./AdmissionScreen";

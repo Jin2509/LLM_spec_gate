@@ -67,21 +67,13 @@ export async function apiRequest<T>(path: string, init: ApiRequestInit = {}): Pr
   return data as T;
 }
 
-/** Gửi body dạng text thô (ví dụ: tệp JSONL). */
-export async function apiRequestText<T>(path: string, text: string, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(path, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-ndjson" },
-    body: text,
-    signal,
-  });
-  const data = await readJson(response);
-  if (!response.ok) throw errorFrom(response.status, data);
-  return data as T;
-}
-
-/** Đọc luồng NDJSON (mỗi dòng một JSON) từ response. */
-export async function* readNdjson<T>(response: Response): AsyncGenerator<T> {
+/**
+ * Đọc luồng SSE (`event: x` / `data: {...}`) của một POST; ném ApiError nếu backend từ chối request.
+ * Mỗi sự kiện trả về dạng { event, data }.
+ */
+export async function* readSse<T extends { event: string; data: unknown }>(request: Promise<Response>): AsyncGenerator<T> {
+  const response = await request;
+  if (!response.ok) throw errorFrom(response.status, await readJson(response));
   if (!response.body) return;
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
@@ -89,24 +81,22 @@ export async function* readNdjson<T>(response: Response): AsyncGenerator<T> {
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      try {
-        yield JSON.parse(trimmed) as T;
-      } catch {
-        // Bỏ qua dòng hỏng, giữ luồng tiếp tục.
+    buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n");
+    const blocks = buffer.split("\n\n");
+    buffer = blocks.pop() ?? "";
+    for (const block of blocks) {
+      let event = "message";
+      let data = "";
+      for (const line of block.split("\n")) {
+        if (line.startsWith("event:")) event = line.slice(6).trim();
+        else if (line.startsWith("data:")) data += line.slice(5).trim();
       }
-    }
-  }
-  if (buffer.trim()) {
-    try {
-      yield JSON.parse(buffer.trim()) as T;
-    } catch {
-      // Dòng cuối không hợp lệ.
+      if (!data) continue;
+      try {
+        yield { event, data: JSON.parse(data) } as T;
+      } catch {
+        // Bỏ qua sự kiện hỏng, giữ luồng tiếp tục.
+      }
     }
   }
 }

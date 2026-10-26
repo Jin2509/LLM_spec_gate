@@ -3,75 +3,15 @@
  *
  * App không import file này: dữ liệu thật luôn đến từ backend qua /api/*.
  */
-import type { CaseDossier, GateResult } from "@/core/types";
 import type {
-  AdmissionReport,
-  AnnotationQueueResponse,
   EvidenceStoreResponse,
   FaultInjectionStateResponse,
   RQResultResponse,
-  RepairCandidateEvaluation,
   RunSummary,
   SettingsResponse,
 } from "@/lib/api/types";
 
 export const RUN_ID = "run_test_01";
-
-const PASSING_GATE: GateResult = {
-  passed: true,
-  checks: {
-    g1_accept_grounded: true,
-    g2_reject_b: true,
-    g3_locality: true,
-    g4_preserve_g_a2: true,
-    g5_in_repair_space_and_bsynth: true,
-  },
-  guaranteeNature: "structural",
-  message: "Vượt qua Gate fail-closed.",
-};
-
-export const SPEC_FAULT_CASE: CaseDossier = {
-  id: "case_spec_fault",
-  taskId: "task_01",
-  witness: [5, 3, 2, 8],
-  codeOutput: [2, 3, 5, 8],
-  specP0: "def monitor(w, ret):\n    assert ret == sorted(w)",
-  monitorRejectionClause: "ret == sorted(w)",
-  currentMonitorVersion: "P_0",
-  groundedEvidence: [],
-  advisoryEvidence: [],
-  adjudication: {
-    verdict: "SPEC_FAULT",
-    matchedRule: "R2",
-    skippedRules: [],
-    expectedOutput: [2, 3, 5, 8],
-    explanation: "Code trả về đúng e(w), nhưng monitor P0 bác bỏ e(w).",
-  },
-  gateResult: PASSING_GATE,
-};
-
-export const UNKNOWN_CASE: CaseDossier = {
-  ...SPEC_FAULT_CASE,
-  id: "case_und_evidence",
-  adjudication: { ...SPEC_FAULT_CASE.adjudication, verdict: "UNKNOWN_EVIDENCE", matchedRule: "R6" },
-  ticket: {
-    id: "ticket_und_ev_1",
-    caseId: "case_und_evidence",
-    witness: [5, 3, 2, 8],
-    codeOutput: [2, 3, 5, 8],
-    status: "open",
-    questionType: "expected-output",
-    promptText: "Đầu ra kỳ vọng e(w) là gì?",
-  },
-};
-
-export const ANNOTATION_QUEUE: AnnotationQueueResponse = {
-  runId: RUN_ID,
-  seed: "annotation_seed",
-  total: 1,
-  items: [{ ...UNKNOWN_CASE, ticket: UNKNOWN_CASE.ticket!, isUniqueOutput: true }],
-};
-
 export const RUN_SUMMARY: RunSummary = {
   runId: RUN_ID,
   datasetName: "EvalPlus Custom",
@@ -82,36 +22,6 @@ export const RUN_SUMMARY: RunSummary = {
   ticketsSpent: 0,
   ticketsTotal: 3,
   rejectedWritesCount: 0,
-};
-
-export const ADMISSION_REPORT: AdmissionReport = {
-  runId: RUN_ID,
-  ranAt: "2026-10-12T00:00:00Z",
-  steps: [
-    { index: 1, key: "static_checker", title: "1. Static checker", description: "AST", status: "passed" },
-    { index: 2, key: "contract_runner", title: "2. Chạy contract", description: "pre/post", status: "passed" },
-    {
-      index: 3,
-      key: "anchor_cross_check",
-      title: "3. Kiểm chéo A2/A3 với anchor closure",
-      description: "cross-check",
-      status: "warning",
-      hasViolation: true,
-      violatedTaskId: "task_04",
-    },
-    { index: 4, key: "silent_fault_replay", title: "4. Replay đo SILENT_FAULT", description: "replay", status: "passed", silentFaultsCount: 2 },
-    { index: 5, key: "z3_property_verifier", title: "5. Z3 kiểm tra A2", description: "z3", status: "passed" },
-    { index: 6, key: "bsynth_slack_measurement", title: "6. Đo lỏng P0 qua B_synth", description: "bsynth", status: "passed", slackRatio: 16.7 },
-  ],
-  summary: {
-    slackRatio: 16.7,
-    slackCases: 2,
-    totalTasks: 12,
-    silentFaultCases: ["case_a", "case_b"],
-    admittedTasks: 11,
-    excludedTasks: 1,
-  },
-  reviewedTaskIds: [],
 };
 
 export const EVIDENCE_STORE: EvidenceStoreResponse = {
@@ -192,24 +102,3 @@ export const SETTINGS: SettingsResponse = {
     { id: "model-b", name: "Model B", family: "b" },
   ],
 };
-
-export function repairCandidate(
-  overrides: Partial<RepairCandidateEvaluation> & Pick<RepairCandidateEvaluation, "id">,
-): RepairCandidateEvaluation {
-  return {
-    family: "case_exception",
-    guard: "len(w) == 4",
-    replacement: "ret[0] <= ret[2]",
-    targetExpectedOutput: [1, 2],
-    rank: 1,
-    diffPreview: "",
-    complexity: 25,
-    breadth: 5,
-    passMode: "PASS_PROOF",
-    isProofVerified: true,
-    hasA2Anchor: true,
-    gateResult: PASSING_GATE,
-    isBEmptyInGuard: false,
-    ...overrides,
-  };
-}

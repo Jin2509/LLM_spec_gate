@@ -1,6 +1,11 @@
 /** Các phép tổng hợp thuần trên danh sách run cho trang thống kê. */
 import type { Run } from "@/core/evaluation-types";
-import { verdictLabel } from "@/features/evaluation/EvalNav";
+
+/** Gom các mã UNKNOWN_* về một nhóm khi đếm theo verdict. */
+function verdictLabel(verdict: unknown): string {
+  const v = String(verdict ?? "");
+  return v.startsWith("UNKNOWN") ? "UNKNOWN" : v;
+}
 
 export const VERDICT_CLASSES = ["CODE_FAULT", "SPEC_FAULT", "UNKNOWN"] as const;
 

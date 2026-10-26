@@ -8,78 +8,34 @@ export interface ButtonProps
   size?: "sm" | "md" | "lg";
 }
 
+const SIZE: Record<NonNullable<ButtonProps["size"]>, string> = {
+  sm: "h-8 px-3 text-[12.5px] gap-1.5",
+  md: "h-9 px-4 text-[13.5px] gap-2",
+  lg: "h-10 px-5 text-sm gap-2",
+};
+
+// Màu qua token (tokens.css) để hover/active/theme đều theo một công thức.
+const VARIANT: Record<NonNullable<ButtonProps["variant"]>, string> = {
+  primary:
+    "bg-[var(--accent)] text-[var(--on-accent)] border-transparent shadow-[var(--shadow-sm)] hover:brightness-110 active:brightness-95",
+  secondary:
+    "bg-[var(--bg-elevated)] text-[var(--ink)] border-[var(--rule)] shadow-[var(--shadow-sm)] hover:bg-[var(--bg-hover)]",
+  ghost: "bg-transparent text-[var(--ink)] border-transparent hover:bg-[var(--bg-hover)]",
+  danger:
+    "bg-[var(--v-code-bg)] text-[var(--v-code)] border-[var(--v-code-line)] hover:border-[var(--v-code)]",
+};
+
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  (
-    {
-      variant = "primary",
-      size = "md",
-      className = "",
-      style,
-      disabled,
-      children,
-      ...props
-    },
-    ref
-  ) => {
-    const sizeStyles: Record<string, React.CSSProperties> = {
-      sm: {
-        fontSize: "12px",
-        padding: "4px 8px",
-        height: "28px",
-      },
-      md: {
-        fontSize: "13px",
-        padding: "6px 14px",
-        height: "34px",
-      },
-      lg: {
-        fontSize: "14px",
-        padding: "8px 18px",
-        height: "40px",
-      },
-    };
-
-    const variantStyles: Record<string, React.CSSProperties> = {
-      primary: {
-        backgroundColor: "var(--action)",
-        color: "var(--paper-surface)",
-        borderColor: "transparent",
-      },
-      secondary: {
-        backgroundColor: "var(--paper-surface)",
-        color: "var(--ink)",
-        borderColor: "var(--rule)",
-      },
-      ghost: {
-        backgroundColor: "transparent",
-        color: "var(--ink)",
-        borderColor: "transparent",
-      },
-      danger: {
-        backgroundColor: "var(--v-code-bg)",
-        color: "var(--v-code)",
-        borderColor: "var(--v-code)",
-      },
-    };
-
-    return (
-      <button
-        ref={ref}
-        disabled={disabled}
-        className={`inline-flex items-center justify-center font-mono font-medium border transition-colors select-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
-        style={{
-          borderRadius: "var(--r-cell)",
-          outline: "none",
-          ...sizeStyles[size],
-          ...variantStyles[variant],
-          ...style,
-        }}
-        {...props}
-      >
-        {children}
-      </button>
-    );
-  }
+  ({ variant = "primary", size = "md", className = "", disabled, children, ...props }, ref) => (
+    <button
+      ref={ref}
+      disabled={disabled}
+      className={`inline-flex items-center justify-center whitespace-nowrap rounded-[var(--radius-sm)] border font-medium transition-[background-color,filter,border-color] duration-quick select-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:brightness-100 ${SIZE[size]} ${VARIANT[variant]} ${className}`}
+      {...props}
+    >
+      {children}
+    </button>
+  ),
 );
 
 Button.displayName = "Button";

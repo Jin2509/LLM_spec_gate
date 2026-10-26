@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { ErrorState } from "@/ui/layout";
 import { api, errorMessage, useApiQuery } from "@/lib/api";
-import { EvalNav } from "@/features/evaluation/EvalNav";
+import { ShellPage } from "@/ui/shell/ShellPage";
 import { EMPTY_HISTORY_FILTERS, HistoryFilters, type HistoryFilterValues } from "./components/HistoryFilters";
 import { RunsTable } from "./components/RunsTable";
 import { Pagination } from "./components/Pagination";
@@ -40,19 +40,15 @@ export function HistoryScreen() {
   const total = runsQuery.data?.total ?? 0;
 
   return (
-    <main className="eval-page">
-      <EvalNav current="/history" />
-      <header className="eval-header">
-        <div>
-          <h1>Lịch sử phiên chạy</h1>
-          <p>{total} bản ghi · lưu trong JSONL phía máy chủ</p>
-        </div>
-        <HistoryActions onClear={() => void handleClear()} />
-      </header>
+    <ShellPage
+      title="Lịch sử phiên chạy"
+      description={`${total} bản ghi được lưu trên máy chủ. Bấm vào mã phiên để xem chi tiết và ghi đánh giá.`}
+      actions={<HistoryActions onClear={() => void handleClear()} />}
+    >
       <HistoryFilters value={filters} onChange={handleFilters} />
       {(actionError || runsQuery.error) && <ErrorState message={actionError ?? runsQuery.error ?? ""} status={actionError ? undefined : runsQuery.errorStatus} onRetry={runsQuery.reload} />}
       <RunsTable runs={runsQuery.data?.runs ?? []} />
       <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
-    </main>
+    </ShellPage>
   );
 }

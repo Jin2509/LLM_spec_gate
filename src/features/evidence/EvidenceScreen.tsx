@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { AppShell } from "@/ui/shell";
 import { PageHeader, QueryBoundary } from "@/ui/layout";
-import { ProvenanceTree } from "@/ui/domain/ProvenanceTree";
+import { ProvenanceTree } from "@/features/evidence/components/ProvenanceTree";
 import { api, useApiQuery } from "@/lib/api";
 import { InvariantBadge } from "./components/InvariantBadge";
 import { EvidenceTabs, type EvidenceTab } from "./components/EvidenceTabs";
@@ -20,16 +20,16 @@ function EvidenceContent({ runId }: { runId: string }) {
 
   return (
     <AppShell currentRunId={runId}>
-      <div className="flex flex-col gap-6 max-w-6xl mx-auto py-2">
+      <div className="flex flex-col gap-6">
         <PageHeader
           testId="evidence-topbar"
-          eyebrow="Kho Bằng chứng Hình thức (Evidence Store)"
-          title={<>Formal Evidence Archive &amp; Invariant Monitor</>}
-          description="Dữ liệu bằng chứng là bất biến hình thức (Read-only formal archive). Cấm sửa tay dữ liệu G/B."
+          eyebrow="Dữ liệu"
+          title="Kho bằng chứng"
+          description="Các cặp (đầu vào, đầu ra) đã được phân xử và nguồn gốc của chúng. Chỉ đọc: kho chỉ thay đổi qua phán quyết của hệ thống hoặc câu trả lời của người."
           actions={store.data && <InvariantBadge holds={store.data.invariant.holds} />}
         />
 
-        <QueryBoundary query={store} loadingLabel="Đang tải Kho Bằng chứng...">
+        <QueryBoundary query={store} loadingLabel="Đang tải kho bằng chứng...">
           {(data) => (
             <>
               <EvidenceTabs
@@ -40,24 +40,27 @@ function EvidenceContent({ runId }: { runId: string }) {
               {activeTab === "G" && (
                 <EvidenceRecordList
                   testId="tab-content-G"
-                  intro="Tập G: Các vết kiểm định được chấp nhận (Grounded expected outputs & properties). Không có nút chỉnh sửa."
+                  intro="Các cặp được xác định là đúng, kèm nguồn bằng chứng độc lập với LLM sinh code và đặc tả."
                   records={data.good}
                   verdictTone="success"
-                  outputLabel="Output e(w)"
+                  outputLabel="Đầu ra đúng"
                 />
               )}
               {activeTab === "B" && (
                 <EvidenceRecordList
                   testId="tab-content-B"
-                  intro="Tập B: Các vết bị bác bỏ vi phạm đặc tả (Rejections). Bất biến hình thức, cấm sửa tay."
+                  intro="Các cặp được xác định là sai. Một bản sửa đặc tả không được phép chấp nhận bất kỳ cặp nào ở đây."
                   records={data.bad}
                   verdictTone="danger"
-                  outputLabel="Output"
+                  outputLabel="Đầu ra sai"
                 />
               )}
               {activeTab === "B_synth" && <BSynthList records={data.bSynth} />}
               {activeTab === "anchor_closure" && (
-                <div data-testid="tab-content-anchor_closure">
+                <div data-testid="tab-content-anchor_closure" className="flex flex-col gap-3">
+                  <p className="m-0 text-[13px]" style={{ color: "var(--ink-soft)" }}>
+                    Điểm neo gốc (ví dụ trong docstring) và các ca kiểm thử dẫn xuất từ chúng qua quan hệ biến đổi (MR).
+                  </p>
                   <ProvenanceTree rootNode={data.metamorphicTree} />
                 </div>
               )}

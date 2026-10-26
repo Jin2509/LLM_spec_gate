@@ -15,7 +15,7 @@ describe("Fault Injection Dashboard UI", () => {
     expect(screen.getByTestId("fault-zone-3")).toBeDefined();
 
     const caveat = screen.getByTestId("theoretical-limit-caveat");
-    expect(caveat.textContent).toContain("CHÚ THÍCH CỐ ĐỊNH VỀ GIỚI HẠN LÝ THUYẾT CỦA NGUỒN SAI");
+    expect(caveat.textContent).toContain("Giới hạn của nguồn tin cậy.");
   });
 
   it("sends the selected profile and renders metrics returned by the API", async () => {

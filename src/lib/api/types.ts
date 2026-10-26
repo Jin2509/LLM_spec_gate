@@ -3,20 +3,9 @@
  *
  * Mọi kiểu ở đây được mô tả lại trong api.md để backend triển khai.
  */
-import type {
-  AcademicTask,
-  AdvisorySource,
-  CaseDossier,
-  GateResult,
-  HumanQueryTicket,
-  ProvenanceSource,
-  RepairCandidate,
-  Verdict,
-} from "@/core/types";
-import type { Metrics, Run, EvalVerdict, Turn } from "@/core/evaluation-types";
-import type { MonitorVersionRecord, BadTraceItem } from "@/core/revocation";
+import type { AdvisorySource, ProvenanceSource } from "@/core/types";
+import type { Metrics, Run } from "@/core/evaluation-types";
 import type { AnchorLevel, CostEstimate, ExperimentConfig, ExperimentManifest } from "@/core/experiment";
-import type { GatePolicy, RankedRepairCandidate } from "@/core/repair";
 import type {
   AblationCell,
   ConfusionMatrixRow,
@@ -26,21 +15,9 @@ import type {
   RQ5Metric,
   RQ6Strategy,
   UnknownGateDecomposition,
-} from "@/reporting/results-data";
+} from "@/core/results";
 
 // ── Run manifest & sự kiện SSE ──────────────────────────────────────────────
-export interface RunManifest {
-  id: string;
-  datasetId: string;
-  seed: string;
-  heldOutRatio: number;
-  totalTasks: number;
-  runTaskIds: string[];
-  heldOutTaskIds: string[];
-  isHeldOutLocked: boolean;
-  activeMonitorVersion: string;
-  createdAt: string;
-}
 export interface CurrentRunResponse {
   runId: string;
 }
@@ -112,28 +89,28 @@ export interface SpecDebtItem {
   readonly recordedAt: string;
 }
 
-// ── Datasets ────────────────────────────────────────────────────────────────
-export interface DatasetSummary {
-  id: string;
-  name: string;
-  version: string;
-  taskCount: number;
+// ── Hỏi đáp: POST /api/run (SSE) ─────────────────────────────────────────────
+export type LlmProvider = "openai" | "anthropic";
+/** Một LLM do người dùng chọn. `apiKey` chỉ đi trong body request, không lưu ở client hay server. */
+export interface LlmConfig {
+  provider: LlmProvider;
+  model: string;
+  apiKey: string;
 }
-export interface DatasetListResponse {
-  datasets: Array<DatasetSummary & { tasks: AcademicTask[] }>;
+export interface ChatRequest {
+  llmSpec: LlmConfig;
+  llmCode: LlmConfig;
+  /** Yêu cầu người dùng gõ một lần duy nhất. */
+  intent: string;
 }
-export interface DatasetTasksResponse {
-  datasetId: string;
-  taskCount: number;
-  tasks: AcademicTask[];
-}
-export interface DatasetUploadResponse {
-  success: boolean;
-  message?: string;
-  taskCount?: number;
-  tasks?: AcademicTask[];
-  errors?: Array<{ line: number; message: string; field?: string }>;
-}
+export type ChatStepId = "spec" | "code" | "check";
+/** Kết luận do backend quyết định; UI chỉ ánh xạ sang nhãn và màu. */
+export type ChatVerdict = "consistent" | "spec_fault" | "code_fault" | "unknown";
+export type ChatEvent =
+  | { event: "step"; data: { step: ChatStepId; status: "running" } }
+  | { event: "step"; data: { step: ChatStepId; status: "done"; output: string; durationMs: number } }
+  | { event: "verdict"; data: { verdict: ChatVerdict; reason: string } }
+  | { event: "error"; data: { message: string; step?: ChatStepId } };
 
 // ── Evaluation runs (lịch sử / thống kê) ────────────────────────────────────
 export interface RunFilters {
@@ -154,21 +131,6 @@ export interface RunListResponse {
 export interface RunResponse {
   run: Run;
 }
-export interface CreateEvaluationRunRequest {
-  mode: "evaluation";
-  datasetId: string;
-  datasetVersion: string;
-  problemId: string;
-  problem: string;
-}
-export interface PatchRunRequest {
-  patch?: Partial<Pick<Run, "status" | "confidence" | "gold_label">>;
-  turn?: Omit<Turn, "id" | "at">;
-  verdict?: EvalVerdict;
-  latency?: Record<string, number>;
-  log?: string;
-  level?: "info" | "warn" | "error";
-}
 export interface StatsFilters {
   dataset?: string;
   verdict?: string;
@@ -181,112 +143,6 @@ export interface StatsResponse {
 }
 export type ExportFormat = "csv" | "json" | "stats";
 
-// ── Held-out partition ──────────────────────────────────────────────────────
-export interface LockHeldOutRequest {
-  seed?: string;
-  heldOutRatio?: number;
-}
-export interface LockHeldOutResponse {
-  success: boolean;
-  message: string;
-  manifest: RunManifest;
-}
-
-// ── Cases / Repair ──────────────────────────────────────────────────────────
-export interface CaseListResponse {
-  cases: CaseDossier[];
-}
-/** Ứng viên sửa đặc tả kèm đánh giá Gate G1–G5 và kiểm tra B ∪ B_synth trong guard g. */
-export type RepairCandidateEvaluation = RankedRepairCandidate & {
-  gateResult: GateResult;
-  isBEmptyInGuard: boolean;
-};
-export interface RepairCandidatesResponse {
-  caseId: string;
-  candidates: RepairCandidateEvaluation[];
-}
-export interface DeployRepairRequest {
-  repairCandidate?: RepairCandidate;
-  policy: GatePolicy;
-  isProofVerified?: boolean;
-  hasA2Anchor?: boolean;
-}
-export interface DeployRepairResponse {
-  success: boolean;
-  caseId: string;
-  policy: GatePolicy;
-  passMode?: string;
-  policyDecision: { canDeploy: boolean; reason?: string; [key: string]: unknown };
-  isShadowOnly: boolean;
-  gateResult: GateResult;
-  previousMonitorVersion: string;
-  activeMonitorVersion: string;
-}
-
-// ── Tickets / Annotation ────────────────────────────────────────────────────
-export interface TicketAnswerRequest {
-  answer?: unknown;
-  isUncertain?: boolean;
-  durationMs?: number;
-}
-export interface TicketAnswerResponse {
-  success: boolean;
-  ticket: HumanQueryTicket;
-  message: string;
-  /** Verdict cuối sau khi áp dụng câu trả lời của người (bắt buộc với lượt bổ sung trong chat). */
-  resolvedVerdict?: Verdict;
-  /** Lời giải thích cho verdict cuối. */
-  explanation?: string;
-}
-export interface TicketDeferResponse {
-  success: boolean;
-  ticketId: string;
-  status: "open";
-  message: string;
-}
-/** Một thẻ trong hàng đợi gán nhãn: hồ sơ case + thuộc tính task cần cho QueryTicket. */
-export type AnnotationQueueItem = CaseDossier & { ticket: HumanQueryTicket; isUniqueOutput: boolean };
-export interface AnnotationQueueResponse {
-  runId: string;
-  seed: string;
-  total: number;
-  items: AnnotationQueueItem[];
-}
-
-// ── Admission ───────────────────────────────────────────────────────────────
-export type AdmissionStepStatus = "idle" | "running" | "passed" | "warning" | "error";
-export interface AdmissionStep {
-  index: number;
-  key: string;
-  title: string;
-  description: string;
-  status: AdmissionStepStatus;
-  details?: string;
-  hasViolation?: boolean;
-  violatedTaskId?: string;
-  silentFaultsCount?: number;
-  silentFaultCases?: string[];
-  slackRatio?: number;
-}
-export interface AdmissionReport {
-  runId: string;
-  ranAt: string;
-  steps: AdmissionStep[];
-  summary: {
-    slackRatio: number;
-    slackCases: number;
-    totalTasks: number;
-    silentFaultCases: string[];
-    admittedTasks: number;
-    excludedTasks: number;
-  };
-  reviewedTaskIds: string[];
-}
-export interface AdmissionReviewResponse {
-  runId: string;
-  reviewedTaskIds: string[];
-}
-
 // ── Evidence store ──────────────────────────────────────────────────────────
 export interface EvidenceStoreResponse {
   runId: string;
@@ -296,22 +152,6 @@ export interface EvidenceStoreResponse {
   metamorphicTree: MetamorphicAnchorNode;
   specDebt: SpecDebtItem[];
   invariant: { holds: boolean; intersectionCount: number; violatingKeys: string[] };
-}
-
-// ── Revocation ──────────────────────────────────────────────────────────────
-export interface RevocationHistoryResponse {
-  runId: string;
-  monitorHistory: MonitorVersionRecord[];
-}
-export interface InjectBadTraceResponse {
-  success: boolean;
-  revocationResult: {
-    revoked: boolean;
-    violatingTrace?: BadTraceItem;
-    reason?: string;
-    newActiveVersion?: string;
-  };
-  currentHistory: MonitorVersionRecord[];
 }
 
 // ── Results RQ1–RQ6 ─────────────────────────────────────────────────────────

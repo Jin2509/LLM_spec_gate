@@ -1,20 +1,23 @@
 /**
  * src/ui/layout — Khối bố cục dùng chung cho các màn hình feature.
  *
- * Gom các mẫu lặp lại (header trang, thẻ panel, ô số liệu, thông báo,
- * trạng thái tải/lỗi) để các page không phải nhân bản style inline.
+ * Gom các mẫu lặp lại (header trang, card, ô số liệu, thông báo, trạng thái tải/lỗi) để các page
+ * không phải nhân bản style. Mọi màu lấy từ token (tokens.css); chữ dùng font sans, chỉ code/dữ liệu
+ * mới dùng mono.
  */
-import { Construction, TriangleAlert } from "lucide-react";
+import { ChevronRight, Construction, TriangleAlert } from "lucide-react";
 import React from "react";
 
-export type Tone = "neutral" | "success" | "warning" | "danger" | "action";
+export type Tone = "neutral" | "success" | "warning" | "danger" | "action" | "info" | "dual";
 
 const TONE_VARS: Record<Tone, { fg: string; bg: string; border: string }> = {
-  neutral: { fg: "var(--ink-soft)", bg: "var(--v-neutral-bg)", border: "var(--rule)" },
-  success: { fg: "var(--v-acc)", bg: "var(--v-acc-bg)", border: "var(--v-acc)" },
-  warning: { fg: "var(--v-spec)", bg: "var(--v-spec-bg)", border: "var(--v-spec)" },
-  danger: { fg: "var(--v-code)", bg: "var(--v-code-bg)", border: "var(--v-code)" },
-  action: { fg: "var(--action)", bg: "var(--paper-ground)", border: "var(--action)" },
+  neutral: { fg: "var(--text-secondary)", bg: "var(--bg-sunken)", border: "var(--border-default)" },
+  success: { fg: "var(--v-acc)", bg: "var(--v-acc-bg)", border: "var(--v-acc-line)" },
+  warning: { fg: "var(--v-spec)", bg: "var(--v-spec-bg)", border: "var(--v-spec-line)" },
+  danger: { fg: "var(--v-code)", bg: "var(--v-code-bg)", border: "var(--v-code-line)" },
+  action: { fg: "var(--accent)", bg: "var(--accent-soft)", border: "var(--accent-line)" },
+  info: { fg: "var(--v-info)", bg: "var(--v-info-bg)", border: "var(--v-info-line)" },
+  dual: { fg: "var(--v-dual)", bg: "var(--v-dual-bg)", border: "var(--v-dual-line)" },
 };
 
 export function toneStyle(tone: Tone): React.CSSProperties {
@@ -24,6 +27,7 @@ export function toneStyle(tone: Tone): React.CSSProperties {
 
 // ── PageHeader ──────────────────────────────────────────────────────────────
 export interface PageHeaderProps {
+  /** Nhãn nhỏ phía trên tiêu đề, ví dụ "Bước 2 · Kiểm nạp". */
   eyebrow?: React.ReactNode;
   eyebrowTone?: Tone;
   title: React.ReactNode;
@@ -34,31 +38,24 @@ export interface PageHeaderProps {
 
 export function PageHeader({ eyebrow, eyebrowTone = "action", title, description, actions, testId }: PageHeaderProps) {
   return (
-    <div
-      data-testid={testId}
-      className="p-4 rounded border flex flex-wrap items-center justify-between gap-4 font-mono text-xs"
-      style={{ backgroundColor: "var(--paper-surface)", borderColor: "var(--rule)", borderRadius: "var(--r-card)" }}
-    >
-      <div>
+    <header data-testid={testId} className="flex flex-wrap items-end justify-between gap-4 pb-1">
+      <div className="min-w-0 max-w-3xl">
         {eyebrow && (
-          <span
-            className="text-[11px] uppercase tracking-wider font-semibold"
-            style={{ color: TONE_VARS[eyebrowTone].fg }}
-          >
+          <span className="block text-[12px] font-medium tracking-wide" style={{ color: TONE_VARS[eyebrowTone].fg }}>
             {eyebrow}
           </span>
         )}
-        <h1 className="text-base font-bold m-0 mt-0.5" style={{ color: "var(--ink)" }}>
+        <h1 className="m-0 mt-1 text-[22px] leading-tight font-semibold tracking-[-0.01em]" style={{ color: "var(--ink)" }}>
           {title}
         </h1>
         {description && (
-          <p className="text-[11px] m-0 mt-1 opacity-75" style={{ color: "var(--ink-soft)" }}>
+          <p className="m-0 mt-1.5 text-[14px] leading-relaxed" style={{ color: "var(--ink-soft)" }}>
             {description}
           </p>
         )}
       </div>
-      {actions && <div className="flex items-center gap-3">{actions}</div>}
-    </div>
+      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+    </header>
   );
 }
 
@@ -71,27 +68,31 @@ export interface PanelProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "
 
 export function Panel({ title, aside, testId, className = "", style, children, ...rest }: PanelProps) {
   return (
-    <div
+    <section
       data-testid={testId}
-      className={`p-4 rounded border flex flex-col gap-4 font-mono text-xs ${className}`}
+      className={`p-5 rounded-[var(--radius-md)] border flex flex-col gap-4 text-[13.5px] ${className}`}
       style={{
-        backgroundColor: "var(--paper-surface)",
-        borderColor: "var(--rule)",
-        borderRadius: "var(--r-card)",
+        backgroundColor: "var(--bg-elevated)",
+        borderColor: "var(--border-subtle)",
+        boxShadow: "var(--shadow-sm)",
         ...style,
       }}
       {...rest}
     >
       {(title || aside) && (
-        <div className="flex items-center justify-between pb-2 border-b" style={{ borderColor: "var(--rule)" }}>
-          <span className="font-semibold" style={{ color: "var(--ink)" }}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="m-0 text-[15px] font-semibold" style={{ color: "var(--ink)" }}>
             {title}
-          </span>
-          {aside && <span style={{ color: "var(--ink-soft)" }}>{aside}</span>}
+          </h2>
+          {aside && (
+            <span className="text-[12.5px]" style={{ color: "var(--ink-soft)" }}>
+              {aside}
+            </span>
+          )}
         </div>
       )}
       {children}
-    </div>
+    </section>
   );
 }
 
@@ -105,19 +106,22 @@ export interface MetricTileProps {
   valueTestId?: string;
 }
 
-export function MetricTile({ label, value, hint, valueColor = "var(--ink)", borderColor = "var(--rule)", valueTestId }: MetricTileProps) {
+export function MetricTile({ label, value, hint, valueColor = "var(--ink)", borderColor = "var(--border-subtle)", valueTestId }: MetricTileProps) {
   return (
-    <div className="p-2.5 rounded border" style={{ backgroundColor: "var(--paper-ground)", borderColor }}>
-      <span className="block text-[11px]" style={{ color: "var(--ink-soft)" }}>
+    <div
+      className="p-4 rounded-[var(--radius-md)] border flex flex-col gap-1"
+      style={{ backgroundColor: "var(--bg-elevated)", borderColor, boxShadow: "var(--shadow-sm)" }}
+    >
+      <span className="text-[12.5px]" style={{ color: "var(--ink-soft)" }}>
         {label}
       </span>
-      <strong data-testid={valueTestId} className="text-sm font-bold" style={{ color: valueColor }}>
+      <strong data-testid={valueTestId} className="text-[22px] leading-tight font-semibold tabular-nums" style={{ color: valueColor }}>
         {value}
       </strong>
       {hint && (
-        <div className="text-[10px] mt-0.5" style={{ color: "var(--ink-soft)" }}>
+        <span className="text-[12px]" style={{ color: "var(--ink-soft)" }}>
           {hint}
-        </div>
+        </span>
       )}
     </div>
   );
@@ -136,8 +140,8 @@ export function Notice({ tone = "neutral", testId, dashed, children }: NoticePro
     <div
       data-testid={testId}
       role={tone === "danger" ? "alert" : "status"}
-      className="p-3 rounded border font-mono text-xs"
-      style={{ ...toneStyle(tone), borderStyle: dashed ? "dashed" : "solid", borderRadius: "var(--r-cell)" }}
+      className="px-4 py-3 rounded-[var(--radius-md)] border text-[13.5px] leading-relaxed"
+      style={{ ...toneStyle(tone), borderStyle: dashed ? "dashed" : "solid" }}
     >
       {children}
     </div>
@@ -148,18 +152,35 @@ export function Notice({ tone = "neutral", testId, dashed, children }: NoticePro
 export function Badge({ tone = "neutral", children, className = "" }: { tone?: Tone; children: React.ReactNode; className?: string }) {
   return (
     <span
-      className={`px-2 py-0.5 rounded border text-[11px] font-mono font-semibold ${className}`}
-      style={{ ...toneStyle(tone), borderRadius: "var(--r-cell)" }}
+      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[12px] font-medium whitespace-nowrap ${className}`}
+      style={toneStyle(tone)}
     >
       {children}
     </span>
   );
 }
 
-// ── Query states ────────────────────────────────────────────────────────────
-export function LoadingState({ label = "Đang tải dữ liệu..." }: { label?: string }) {
+// ── TechDetails ─────────────────────────────────────────────────────────────
+/** Khối thu gọn cho chi tiết kỹ thuật (thuật ngữ bài báo, mã, dữ liệu thô): mặc định ẩn để UI gọn. */
+export function TechDetails({ summary = "Chi tiết kỹ thuật", children, testId }: { summary?: React.ReactNode; children: React.ReactNode; testId?: string }) {
   return (
-    <div role="status" className="p-6 text-center font-mono text-xs opacity-70" style={{ color: "var(--ink-soft)" }}>
+    <details data-testid={testId} className="group text-[13px]">
+      <summary
+        className="inline-flex items-center gap-1 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden"
+        style={{ color: "var(--ink-soft)" }}
+      >
+        <ChevronRight size={14} className="transition-transform group-open:rotate-90" aria-hidden="true" />
+        {summary}
+      </summary>
+      <div className="mt-2 pl-5">{children}</div>
+    </details>
+  );
+}
+
+// ── Query states ────────────────────────────────────────────────────────────
+function LoadingState({ label = "Đang tải dữ liệu..." }: { label?: string }) {
+  return (
+    <div role="status" className="p-8 text-center text-[13.5px]" style={{ color: "var(--ink-soft)" }}>
       {label}
     </div>
   );
@@ -171,24 +192,23 @@ export function LoadingState({ label = "Đang tải dữ liệu..." }: { label?:
  */
 export function ErrorState({ message, onRetry, status }: { message: string; onRetry?: () => void; status?: number }) {
   const unavailable = status === 501;
+  const Icon = unavailable ? Construction : TriangleAlert;
   return (
     <div
       role="alert"
       data-testid={unavailable ? "feature-unavailable" : "error-state"}
-      className="p-3 rounded border font-mono text-xs flex items-center justify-between gap-3"
-      style={{ ...toneStyle(unavailable ? "warning" : "danger"), borderStyle: unavailable ? "dashed" : "solid", borderRadius: "var(--r-cell)" }}
+      className="px-4 py-3 rounded-[var(--radius-md)] border text-[13.5px] flex items-start justify-between gap-3"
+      style={{ ...toneStyle(unavailable ? "warning" : "danger"), borderStyle: unavailable ? "dashed" : "solid" }}
     >
-      <span>
-        {unavailable ? (
-          <>
-            <Construction size={14} className="inline-block shrink-0 align-[-2px]" aria-hidden="true" /> <strong>Chức năng chưa khả dụng:</strong> {message}
-          </>
-        ) : (
-          <><TriangleAlert size={14} className="inline-block shrink-0 align-[-2px]" aria-hidden="true" /> {message}</>
-        )}
+      <span className="flex items-start gap-2">
+        <Icon size={16} className="shrink-0 mt-0.5" aria-hidden="true" />
+        <span>
+          {unavailable && <strong>Chức năng chưa khả dụng: </strong>}
+          {message}
+        </span>
       </span>
       {onRetry && (
-        <button type="button" className="underline cursor-pointer" onClick={onRetry}>
+        <button type="button" className="shrink-0 font-medium underline underline-offset-2 cursor-pointer" onClick={onRetry}>
           Thử lại
         </button>
       )}
@@ -221,8 +241,8 @@ export function QueryBoundary<T>({
 export function PageFallback({ label }: { label: string }) {
   return (
     <div
-      className="min-h-screen flex items-center justify-center font-mono text-xs opacity-60"
-      style={{ backgroundColor: "var(--paper-ground)", color: "var(--ink)" }}
+      className="min-h-screen flex items-center justify-center text-[13.5px]"
+      style={{ backgroundColor: "var(--paper-ground)", color: "var(--ink-soft)" }}
     >
       {label}
     </div>

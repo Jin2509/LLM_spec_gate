@@ -11,31 +11,38 @@ export interface EvidenceTabsProps {
 }
 
 export function EvidenceTabs({ active, counts, onChange }: EvidenceTabsProps) {
-  const tabs: Array<{ key: EvidenceTab; label: string }> = [
-    { key: "G", label: `Tập G - Chấp nhận (${counts.G})` },
-    { key: "B", label: `Tập B - Bác bỏ (${counts.B})` },
-    { key: "B_synth", label: `Tập B_synth - Đột biến (${counts.B_synth})` },
-    { key: "anchor_closure", label: "Anchor & Bao đóng MR" },
-    { key: "spec_debt", label: `Nợ đặc tả (${counts.spec_debt})` },
+  const tabs: Array<{ key: EvidenceTab; label: string; count?: number }> = [
+    { key: "G", label: "Kết quả đúng (G)", count: counts.G },
+    { key: "B", label: "Kết quả sai (B)", count: counts.B },
+    { key: "B_synth", label: "Đột biến", count: counts.B_synth },
+    { key: "anchor_closure", label: "Điểm neo" },
+    { key: "spec_debt", label: "Nợ đặc tả", count: counts.spec_debt },
   ];
 
   return (
-    <div className="flex items-center gap-2 border-b pb-1 font-mono text-xs" style={{ borderColor: "var(--rule)" }}>
+    <div role="tablist" aria-label="Loại bằng chứng" className="inline-flex flex-wrap gap-1 p-1 rounded-[var(--radius-md)] self-start" style={{ backgroundColor: "var(--bg-sunken)" }}>
       {tabs.map((tab) => {
         const isActive = active === tab.key;
         return (
           <button
             key={tab.key}
+            role="tab"
+            aria-selected={isActive}
             data-testid={`evidence-tab-${tab.key}`}
             onClick={() => onChange(tab.key)}
-            className="px-3 py-2 rounded-t font-semibold cursor-pointer transition-colors relative"
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-[var(--radius-sm)] text-[13px] font-medium cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             style={{
-              backgroundColor: isActive ? "var(--paper-surface)" : "transparent",
-              color: isActive ? "var(--action)" : "var(--ink-soft)",
-              borderBottom: isActive ? "2px solid var(--action)" : "2px solid transparent",
+              backgroundColor: isActive ? "var(--bg-elevated)" : "transparent",
+              color: isActive ? "var(--ink)" : "var(--ink-soft)",
+              boxShadow: isActive ? "var(--shadow-sm)" : "none",
             }}
           >
             {tab.label}
+            {tab.count !== undefined && (
+              <span className="text-[12px] tabular-nums" style={{ color: "var(--ink-soft)" }}>
+                {tab.count}
+              </span>
+            )}
           </button>
         );
       })}

@@ -3,10 +3,10 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/ui/shell";
-import { ChartContainer } from "@/ui/reporting/ChartContainer";
-import { QueryBoundary } from "@/ui/layout";
+import { ChartContainer } from "@/features/results/components/ChartContainer";
+import { PageHeader, QueryBoundary } from "@/ui/layout";
 import { RQ_IDS, api, useApiQuery, type RQId } from "@/lib/api";
-import type { LinkedWitness } from "@/reporting/results-data";
+import type { LinkedWitness } from "@/core/results";
 import { RQTabs } from "./components/RQTabs";
 import { RQChart, rawDataOf } from "./components/RQChart";
 import { useRouteParam } from "@/features/runs/use-run-id";
@@ -35,9 +35,14 @@ function ResultsContent({ runId }: { runId: string }) {
 
   return (
     <AppShell currentRunId={runId}>
-      <div className="flex flex-col gap-6 max-w-6xl mx-auto py-2 font-sans">
+      <div className="flex flex-col gap-6">
+        <PageHeader
+          eyebrow="Thực nghiệm"
+          title="Kết quả nghiên cứu"
+          description="Số liệu tổng hợp từ kết quả thực nghiệm thật của lượt chạy. Bấm vào một phần tử biểu đồ để xem các ca minh chứng."
+        />
         <RQTabs active={activeRq} onChange={handleTabChange} />
-        <QueryBoundary query={result} loadingLabel="Đang tải Báo cáo Khoa học...">
+        <QueryBoundary query={result} loadingLabel="Đang tải kết quả...">
           {(data) => (
             <ChartContainer
               runId={runId}

@@ -2,7 +2,6 @@ import type { Verdict as DomainVerdict } from "@/core/types";
 
 export type EvalVerdict = "CODE_FAULT" | "SPEC_FAULT" | "UNKNOWN" | DomainVerdict;
 export type RunStatus = "queued" | "spec_running" | "code_running" | "judging" | "answered" | "followup" | "final" | "error";
-export interface Problem { id: string; title: string; prompt: string; group?: string; difficulty?: string; goldLabel?: EvalVerdict }
 export interface AgentOutput { agent: string; model?: string; version?: string; status: "queued" | "running" | "done" | "error"; output?: string; latencyMs?: number; tokens?: number; error?: string }
 export interface Turn { id: string; role: "user" | "system"; content: string; verdict?: EvalVerdict; confidence?: number; latencyMs?: number; at: string }
 export interface RunLog { id: string; at: string; level: "info" | "warn" | "error"; message: string }

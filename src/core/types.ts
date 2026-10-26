@@ -10,20 +10,11 @@ import {
   RuleIdSchema,
   ProvenanceSourceSchema,
   AdvisorySourceSchema,
-  GroundedExpectedOutputEvidenceSchema,
-  GroundedPropertyEvidenceSchema,
   GroundedEvidenceSchema,
   AdvisoryEvidenceSchema,
-  TicketStatusSchema,
-  QuestionTypeSchema,
   HumanQueryTicketSchema,
-  RepairFamilySchema,
   RepairCandidateSchema,
-  GateChecksSchema,
-  GuaranteeNatureSchema,
   GateResultSchema,
-  TaskOutputTypeSchema,
-  AnchorOriginSchema,
   AcademicTaskSchema,
 } from "./schema";
 
@@ -32,45 +23,14 @@ export type RuleId = z.infer<typeof RuleIdSchema>;
 export type ProvenanceSource = z.infer<typeof ProvenanceSourceSchema>;
 export type AdvisorySource = z.infer<typeof AdvisorySourceSchema>;
 
-export type GroundedExpectedOutputEvidence = z.infer<
-  typeof GroundedExpectedOutputEvidenceSchema
->;
-export type GroundedPropertyEvidence = z.infer<
-  typeof GroundedPropertyEvidenceSchema
->;
 export type GroundedEvidence = z.infer<typeof GroundedEvidenceSchema>;
 
 export type AdvisoryEvidence = z.infer<typeof AdvisoryEvidenceSchema>;
 
-export type TicketStatus = z.infer<typeof TicketStatusSchema>;
-export type QuestionType = z.infer<typeof QuestionTypeSchema>;
 export type HumanQueryTicket = z.infer<typeof HumanQueryTicketSchema>;
 
-export type RepairFamily = z.infer<typeof RepairFamilySchema>;
 export type RepairCandidate = z.infer<typeof RepairCandidateSchema>;
-export type GateChecks = z.infer<typeof GateChecksSchema>;
-export type GuaranteeNature = z.infer<typeof GuaranteeNatureSchema>;
 export type GateResult = z.infer<typeof GateResultSchema>;
-
-export type StageId = 1 | 2 | 3 | 4 | 5 | 6;
-export type StageStatus =
-  | "idle"
-  | "pending"
-  | "running"
-  | "done"
-  | "skipped"
-  | "stale"
-  | "error"
-  | "cancelled";
-
-export interface StageInfo {
-  readonly id: StageId;
-  readonly name: string;
-  readonly status: StageStatus;
-  readonly summary?: string;
-  readonly engine?: string;
-  readonly errorReason?: string;
-}
 
 /**
  * Adjudication outcome produced by aggregate()
@@ -106,6 +66,4 @@ export interface CaseDossier {
   readonly currentMonitorVersion: string;
 }
 
-export type TaskOutputType = z.infer<typeof TaskOutputTypeSchema>;
-export type AnchorOrigin = z.infer<typeof AnchorOriginSchema>;
 export type AcademicTask = z.infer<typeof AcademicTaskSchema>;

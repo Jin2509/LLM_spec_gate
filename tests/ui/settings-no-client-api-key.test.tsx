@@ -6,19 +6,19 @@ import { mockApi } from "../helpers/api-routes";
 import { SETTINGS } from "../fixtures/api";
 
 describe("Settings Page Security Architecture", () => {
-  it("STRICT SECURITY INVARIANT: Forbids storing or inputting API keys in client", async () => {
+  it("STRICT SECURITY INVARIANT: the Settings page has no API key input and points to the chat page", async () => {
     mockApi({ "GET /api/settings": SETTINGS });
     const { container } = render(<SettingsPage />);
 
     // Đợi form cấu hình tải xong từ API rồi mới kiểm tra toàn bộ input
-    await screen.findByText(/Mô hình Mặc định/);
+    await screen.findByText(/Mô hình mặc định/);
 
     expect(container.querySelectorAll("input[type='password']").length).toBe(0);
     expect(container.querySelectorAll("input[name*='apiKey'], input[name*='key']").length).toBe(0);
 
     const placeholder = screen.getByTestId("api-keys-placeholder");
-    expect(placeholder.textContent).toContain("BẢO MẬT API KEYS: CẤU HÌNH PHÍA SERVER (.env.local)");
-    expect(placeholder.textContent).toContain("tuyệt đối cấm lưu trữ API Key ở phía Client");
+    expect(placeholder.textContent).toContain("API key không được lưu ở đây");
+    expect(placeholder.textContent).toContain("không lưu key vào trình duyệt");
   });
 
   it("saves only the LabSettings fields (never an API key) via PUT /api/settings", async () => {
@@ -31,7 +31,7 @@ describe("Settings Page Security Architecture", () => {
       },
     });
     render(<SettingsPage />);
-    await screen.findByText(/Mô hình Mặc định/);
+    await screen.findByText(/Mô hình mặc định/);
 
     fireEvent.click(screen.getByTestId("save-settings-btn"));
 

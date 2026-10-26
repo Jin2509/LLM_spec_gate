@@ -3,7 +3,7 @@ import { RunDetailScreen } from "@/features/history";
 
 export default function RunDetailPage({ params }: PageProps<"/history/[runId]">) {
   return (
-    <Suspense fallback={<main className="eval-page">Đang tải phiên…</main>}>
+    <Suspense fallback={<main className="shell-page">Đang tải phiên…</main>}>
       <ResolvedRun params={params} />
     </Suspense>
   );

@@ -6,9 +6,11 @@
  *   2. Inject anti-FOUC theme-init script BEFORE body paints
  *   3. Apply font CSS variable classes to <html>
  *   4. Import global styles (tokens → tailwind → resets)
+ *   5. Mount client providers (cấu hình LLM giữ trong bộ nhớ khi chuyển trang)
  */
 import type { Metadata } from "next";
 import { Roboto, Roboto_Mono } from "next/font/google";
+import { Providers } from "./providers";
 import { themeInitScript } from "./theme-init";
 import "../styles/globals.css";
 
@@ -48,7 +50,9 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: themeInitScript }}
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

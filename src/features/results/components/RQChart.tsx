@@ -2,8 +2,8 @@
 
 import React from "react";
 import type { RQData } from "@/lib/api";
-import type { LinkedWitness } from "@/reporting/results-data";
-import { RQ1Chart, RQ2Chart, RQ3Chart, RQ4Chart, RQ5Chart, RQ6Chart } from "@/ui/reporting/RQCharts";
+import type { LinkedWitness } from "@/core/results";
+import { RQ1Chart, RQ2Chart, RQ3Chart, RQ4Chart, RQ5Chart, RQ6Chart } from "@/features/results/components/RQCharts";
 
 type OnSelect = (witnesses: ReadonlyArray<LinkedWitness>) => void;
 

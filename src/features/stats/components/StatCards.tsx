@@ -5,6 +5,13 @@ import Link from "next/link";
 import type { Metrics, Run } from "@/core/evaluation-types";
 import { VERDICT_CLASSES } from "../derive";
 
+/** Nhãn hiển thị cho nhóm verdict; khoá dữ liệu giữ nguyên mã gốc. */
+export const VERDICT_CLASS_LABELS: Record<(typeof VERDICT_CLASSES)[number], string> = {
+  CODE_FAULT: "Lỗi code",
+  SPEC_FAULT: "Lỗi đặc tả",
+  UNKNOWN: "Chưa kết luận",
+};
+
 export function StatCard({ title, children, table }: { title: string; children: React.ReactNode; table?: React.ReactNode }) {
   return (
     <section className="stat-card">
@@ -56,16 +63,16 @@ const pct = (value: number | undefined) => (value == null ? "—" : `${(value * 
 
 export function MetricGrid({ metrics }: { metrics?: Metrics }) {
   const tiles: Array<[string, React.ReactNode]> = [
-    ["Tổng run", metrics?.totalRuns],
-    ...VERDICT_CLASSES.map((x): [string, React.ReactNode] => [x, metrics?.byVerdict[x]]),
+    ["Tổng số phiên", metrics?.totalRuns],
+    ...VERDICT_CLASSES.map((x): [string, React.ReactNode] => [VERDICT_CLASS_LABELS[x], metrics?.byVerdict[x]]),
     ["Độ chính xác", pct(metrics?.accuracy)],
-    ["Confidence TB", metrics?.averageConfidence == null ? "—" : metrics.averageConfidence.toFixed(3)],
+    ["Độ tin cậy trung bình", metrics?.averageConfidence == null ? "—" : metrics.averageConfidence.toFixed(3)],
     [
       "Latency TB / p50 / p95",
       [metrics?.latency.mean, metrics?.latency.p50, metrics?.latency.p95].map((v) => (v == null ? "—" : `${v.toFixed(0)} ms`)).join(" / "),
     ],
     ["Lượt bổ sung", metrics?.followupsUsed],
-    ["UNKNOWN được giải quyết", pct(metrics?.unknownResolvedRate)],
+    ["Ca chưa kết luận được giải quyết", pct(metrics?.unknownResolvedRate)],
   ];
   return (
     <div className="metric-grid">

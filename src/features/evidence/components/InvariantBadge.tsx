@@ -1,16 +1,15 @@
 import { ShieldCheck, TriangleAlert } from "lucide-react";
 import React from "react";
-import { toneStyle } from "@/ui/layout";
+import { Badge } from "@/ui/layout";
 
+/** Bất biến G ∩ B = ∅ do backend tính trên kho bằng chứng; UI chỉ hiển thị. */
 export function InvariantBadge({ holds }: { holds: boolean }) {
   return (
-    <div
-      data-testid="disjointness-invariant-badge"
-      className="flex items-center gap-2 px-3 py-2 rounded border font-mono text-xs font-semibold"
-      style={toneStyle(holds ? "success" : "danger")}
-    >
-      {holds ? <ShieldCheck size={14} className="inline-block shrink-0 align-[-2px]" aria-hidden="true" /> : <TriangleAlert size={14} className="inline-block shrink-0 align-[-2px]" aria-hidden="true" />}
-      <span>BẤT BIẾN G ∩ B = ∅: {holds ? "HỢP LỆ (Giao rỗng)" : "VI PHẠM XUNG ĐỘT"}</span>
-    </div>
+    <span data-testid="disjointness-invariant-badge" title="G ∩ B = ∅: kho đúng và kho sai không có cặp chung">
+      <Badge tone={holds ? "success" : "danger"}>
+        {holds ? <ShieldCheck size={14} aria-hidden="true" /> : <TriangleAlert size={14} aria-hidden="true" />}
+        {holds ? "Kho G và B tách biệt" : "Kho G và B đang giao nhau"}
+      </Badge>
+    </span>
   );
 }

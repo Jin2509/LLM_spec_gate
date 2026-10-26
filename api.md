@@ -20,52 +20,55 @@ Trình duyệt ──fetch /api/*──▶ Next.js  src/app/api/[...path]/route.
 | Mục | Quy ước |
 |---|---|
 | Base path | `/api` |
-| Định dạng | JSON (`Content-Type: application/json`), trừ các ngoại lệ ghi rõ: NDJSON, SSE, CSV, upload JSONL |
+| Định dạng | JSON (`Content-Type: application/json`), trừ các ngoại lệ ghi rõ: SSE, CSV |
 | Lỗi | Status ≠ 2xx với body `{ "error": string, "code"?: string }`. `error` là thông điệp tiếng Việt hiển thị thẳng cho người dùng. `ApiError` ở client đọc `error` và `code` |
 | **Chưa có engine** | Chức năng cần LLM / Z3 / pipeline mà backend chưa có thì trả **501** `{ "error": "<lý do>", "code": "ENGINE_NOT_CONFIGURED" }`. UI hiển thị “🚧 Chức năng chưa khả dụng” (`data-testid="feature-unavailable"`) và **không bao giờ** thay bằng số liệu minh hoạ |
 | Không có dữ liệu | Trả rỗng hợp lệ (`[]`, `total: 0`) chứ không trả dữ liệu mẫu. 404 chỉ dùng khi tài nguyên được hỏi đích danh không tồn tại |
 | `grading` | **Bắt buộc** loại trường `grading` khỏi mọi response |
-| API keys | Không bao giờ nhận hay trả API key của nhà cung cấp mô hình. Key chỉ đặt ở môi trường của backend |
+| API keys | Chỉ `POST /api/run` nhận key (của 2 LLM do người dùng nhập ở trang Hỏi đáp) trong body; backend dùng trong request rồi bỏ, không lưu DB, không log, không trả lại. Mọi endpoint khác không nhận/trả key; lượt chạy thực nghiệm dùng key ở môi trường backend |
 | Huỷ request | Client gửi `AbortSignal`; proxy chuyển tín hiệu huỷ sang backend |
 
 Các endpoint có thể trả **501** khi chưa có engine: 4.4 (stream phân xử), 4.5 (ứng viên sửa), 6.1–6.2 (admission), 7.1 (evidence), 8.2 (tiêm vết xấu), 9.1 (kết quả RQ), 10.2–10.4 (experiments), 11.2 (fault-injection).
 
 ## Tổng quan endpoint
 
+Giao diện chỉ còn một trang hỏi đáp (`/`) thay cho các màn vòng đời tách rời (Thiết lập, Kiểm nạp, Phân xử, Hỏi người, Sửa đặc tả, Duy trì). Các endpoint của những màn đó vẫn nằm trong hợp đồng backend nhưng UI không gọi nữa.
+
 | # | Method | Path | Front-end dùng ở |
 |---|---|---|---|
-| 1 | GET | `/api/datasets` | `ChatTestbed` (danh sách dataset + task) |
-| 2 | POST | `/api/datasets` | `api.datasets.uploadJsonl` |
-| 3 | GET | `/api/datasets/{datasetId}/tasks` | `LibraryScreen` |
+| 0 | POST | `/api/run` (SSE) | `ChatScreen` → `useChatRun` (trang Hỏi đáp) |
+| 1 | GET | `/api/datasets` | — *(UI không còn gọi; backend vẫn giữ)* |
+| 2 | POST | `/api/datasets` | — *(UI không còn gọi; backend vẫn giữ)* |
+| 3 | GET | `/api/datasets/{datasetId}/tasks` | — *(UI không còn gọi; backend vẫn giữ)* |
 | 4 | GET | `/api/runs` | `HistoryScreen` |
-| 5 | POST | `/api/runs` | `ChatTestbed` (mode evaluation) |
+| 5 | POST | `/api/runs` | — *(UI không còn gọi; backend vẫn giữ)* |
 | 6 | DELETE | `/api/runs` | `HistoryScreen` |
 | 7 | GET | `/api/runs/current` | `RunGate` (route không có `[runId]`) |
 | 8 | GET | `/api/runs/{runId}` | `RunDetailScreen` |
 | 9 | GET | `/api/runs/{runId}/summary` | `Topbar` |
-| 10 | PATCH | `/api/runs/{runId}` | `ChatTestbed` |
+| 10 | PATCH | `/api/runs/{runId}` | — *(UI không còn gọi; backend vẫn giữ)* |
 | 11 | PATCH | `/api/runs/{runId}/review` | `RunDetailScreen` → `ReviewForm` |
-| 12 | POST | `/api/runs/{runId}/followup` | `ChatTestbed` |
+| 12 | POST | `/api/runs/{runId}/followup` | — *(UI không còn gọi; backend vẫn giữ)* |
 | 13 | GET | `/api/runs/export?format=` | `HistoryActions` (link tải) |
-| 14 | GET | `/api/logs/stream?runId=` (SSE) | `LiveLogPanel` |
+| 14 | GET | `/api/logs/stream?runId=` (SSE) | — *(UI không còn gọi; backend vẫn giữ)* |
 | 15 | GET | `/api/stats` | `StatsScreen` |
-| 16 | GET | `/api/runs/{runId}/manifest` | `LibraryScreen` |
-| 17 | POST | `/api/runs/{runId}/lock-heldout` | `LibraryScreen` → `HeldOutPartitionCard` |
-| 18 | GET | `/api/runs/{runId}/events` (SSE) | `AdmissionScreen` (`useRunEvents`) |
-| 19 | GET | `/api/cases?runId=&hasTicket=` | `ChatTestbed`, `RepairGateScreen` |
-| 20 | GET | `/api/cases/{caseId}` | `api.cases.get` |
-| 21 | GET | `/api/runs/{runId}/cases/{caseId}/repair-candidates` | `RepairGateScreen` → `RepairGatePanel` |
-| 22 | POST | `/api/cases/{caseId}/repair/deploy` | `RepairGatePanel` |
-| 23 | POST | `/api/runs/{runId}/cases/{caseId}/stream` (NDJSON) | `useDualOracleStream` → `ChatTestbed` |
-| 24 | POST | `/api/tickets/{ticketId}/answer` | `AnnotateScreen`, `ChatTestbed` |
-| 25 | POST | `/api/tickets/{ticketId}/defer` | `AnnotateScreen` |
-| 26 | GET | `/api/runs/{runId}/annotation-queue` | `AnnotateScreen` |
-| 27 | GET | `/api/runs/{runId}/admission` | `AdmissionScreen` |
-| 28 | POST | `/api/runs/{runId}/admission` | `AdmissionScreen` (nút chạy kiểm nạp) |
-| 29 | POST | `/api/runs/{runId}/admission/review` | `AdmissionStepCard` |
+| 16 | GET | `/api/runs/{runId}/manifest` | — *(UI không còn gọi; backend vẫn giữ)* |
+| 17 | POST | `/api/runs/{runId}/lock-heldout` | — *(UI không còn gọi; backend vẫn giữ)* |
+| 18 | GET | `/api/runs/{runId}/events` (SSE) | — *(UI không còn gọi; backend vẫn giữ)* |
+| 19 | GET | `/api/cases?runId=&hasTicket=` | — *(UI không còn gọi; backend vẫn giữ)* |
+| 20 | GET | `/api/cases/{caseId}` | — *(UI không còn gọi; backend vẫn giữ)* |
+| 21 | GET | `/api/runs/{runId}/cases/{caseId}/repair-candidates` | — *(UI không còn gọi; backend vẫn giữ)* |
+| 22 | POST | `/api/cases/{caseId}/repair/deploy` | — *(UI không còn gọi; backend vẫn giữ)* |
+| 23 | POST | `/api/runs/{runId}/cases/{caseId}/stream` (NDJSON) | — *(UI không còn gọi; backend vẫn giữ)* |
+| 24 | POST | `/api/tickets/{ticketId}/answer` | — *(UI không còn gọi; backend vẫn giữ)* |
+| 25 | POST | `/api/tickets/{ticketId}/defer` | — *(UI không còn gọi; backend vẫn giữ)* |
+| 26 | GET | `/api/runs/{runId}/annotation-queue` | — *(UI không còn gọi; backend vẫn giữ)* |
+| 27 | GET | `/api/runs/{runId}/admission` | — *(UI không còn gọi; backend vẫn giữ)* |
+| 28 | POST | `/api/runs/{runId}/admission` | — *(UI không còn gọi; backend vẫn giữ)* |
+| 29 | POST | `/api/runs/{runId}/admission/review` | — *(UI không còn gọi; backend vẫn giữ)* |
 | 30 | GET | `/api/runs/{runId}/evidence` | `EvidenceScreen` |
-| 31 | GET | `/api/runs/{runId}/revocation` | `RevocationScreen` |
-| 32 | POST | `/api/runs/{runId}/revocation` | `RevocationScreen` → `BadTraceForm` |
+| 31 | GET | `/api/runs/{runId}/revocation` | — *(UI không còn gọi; backend vẫn giữ)* |
+| 32 | POST | `/api/runs/{runId}/revocation` | — *(UI không còn gọi; backend vẫn giữ)* |
 | 33 | GET | `/api/runs/{runId}/results/{rq}` | `ResultsScreen` → `RQChart`, `ChartContainer` |
 | 34 | GET | `/api/experiments/options` | `ExperimentsScreen` → `ExperimentConfigForm` |
 | 35 | POST | `/api/experiments/plan` | `ExperimentsScreen` → `CostEstimatePanel` |
@@ -77,6 +80,34 @@ Các endpoint có thể trả **501** khi chưa có engine: 4.4 (stream phân x�
 | 41 | PUT | `/api/settings` | `SettingsScreen` |
 
 ---
+
+## 0. Hỏi đáp — `POST /api/run` (SSE)
+
+Người dùng gõ yêu cầu **một lần**; backend sinh đặc tả bằng LLM đặc tả, sinh code bằng LLM code (độc lập, từ cùng yêu cầu), đối chiếu rồi trả kết luận. Không trạng thái, không ghi DB.
+
+Request:
+
+```json
+{
+  "intent": "Viết hàm median(xs) …",
+  "llmSpec": { "provider": "openai" | "anthropic", "model": "gpt-4o-mini", "apiKey": "sk-…" },
+  "llmCode": { "provider": "openai" | "anthropic", "model": "claude-sonnet-5-5", "apiKey": "sk-ant-…" }
+}
+```
+
+Body sai (thiếu key, provider lạ, trường lạ, `intent` rỗng) → **400** `VALIDATION_ERROR`, thông điệp không chứa key.
+
+Response `text/event-stream`, theo thứ tự:
+
+| event | data |
+|---|---|
+| `step` | `{ step: "spec" \| "code" \| "check", status: "running" }` |
+| `step` | `{ step, status: "done", output: string, durationMs: number }` |
+| `verdict` | `{ verdict: "consistent" \| "spec_fault" \| "code_fault" \| "unknown", reason: string }` — sự kiện cuối |
+| `error` | `{ message: string, step? }` — sự kiện cuối khi lỗi; không bao giờ chứa key |
+
+- Kết luận do backend quyết định (`app/judge.py`, hiện là pipeline tạm chờ logic bài báo). UI chỉ ánh xạ `verdict` → nhãn/màu.
+- Key: UI giữ trong state React của tab (`LlmConfigProvider` ở root layout), không ghi localStorage/sessionStorage/IndexedDB.
 
 ## 1. Datasets & Tasks
 
@@ -232,7 +263,7 @@ Dùng cho danh sách case trong `ChatTestbed` (case đầu tiên là mặc đị
 **200** `CaseDossier` · **404**.
 
 ### 4.5 `GET /api/runs/{runId}/cases/{caseId}/repair-candidates`
-Ứng viên sửa đặc tả `C ∨ (g ∧ D)` cho một case, **mỗi ứng viên đã được backend chạy Gate G1–G5**. Front-end chỉ xếp hạng (bằng `rankCandidates` trong `src/core/repair.ts`) và áp chính sách triển khai (strict/standard/shadow); **không** tự giả định gate pass.
+Ứng viên sửa đặc tả `C ∨ (g ∧ D)` cho một case, **mỗi ứng viên đã được backend chạy Gate và xếp hạng tất định** (trường `rank`, 1 là ưu tiên nhất). Front-end **không chứa logic của bài báo**: chỉ hiển thị theo `rank`, hiển thị `gateResult`/`passMode` như backend trả về và khoá nút triển khai khi `gateResult.passed = false`; không tự xếp hạng, không tự kiểm Gate, không tự áp chính sách.
 
 **200** `RepairCandidatesResponse`:
 ```ts
@@ -260,7 +291,7 @@ Body `DeployRepairRequest`:
   isShadowOnly; gateResult: GateResult; previousMonitorVersion; activeMonitorVersion }
 ```
 **400** không có candidate · **404** case không tồn tại.
-Front-end coi `success: false` là bị chính sách từ chối và hiển thị `policyDecision.reason`.
+Chính sách (strict/standard/shadow) do **backend** áp khi nhận request: front-end gửi chính sách người dùng chọn, coi `success: false` là bị từ chối và hiển thị nguyên `policyDecision.reason`.
 
 ### 4.4 `POST /api/runs/{runId}/cases/{caseId}/stream` — NDJSON
 Body `{ prompt?: string }`. Response `Content-Type: application/x-ndjson`; mỗi dòng là một `DualOracleStreamEvent` (`src/core/stream-types.ts`):
@@ -307,9 +338,10 @@ Hàng đợi gán nhãn cho Focus Mode.
 ```ts
 { runId: string; seed: string; total: number;
   items: Array<CaseDossier & { ticket: HumanQueryTicket;   // bắt buộc có vé
-                               isUniqueOutput: boolean }> } // lấy từ task của case; quyết định kiểu câu hỏi trong QueryTicket
+                               isUniqueOutput: boolean }> } // lấy từ task của case (chỉ để hiển thị)
 ```
 - Chỉ gồm các case có vé **chưa spent**; `ticket.status` là trạng thái hiện tại.
+- Dạng câu hỏi do backend quyết định qua `ticket.questionType`: `"expected-output"` (hỏi đầu ra đúng) hoặc `"acceptability"` (hỏi chấp nhận được không). Front-end hiển thị đúng dạng đó, không tự suy ra từ `isUniqueOutput` hay verdict; ca nào được hỏi (chỉ `UNKNOWN_EVIDENCE` / `UNKNOWN_CONFLICT`, mỗi đầu vào một lần) cũng do backend quyết định.
 - Thứ tự xáo trộn **tất định** theo `seed` để mọi người gán nhãn thấy cùng một thứ tự.
 - Client giữ hàng đợi cục bộ sau lần tải đầu: trả lời thì bỏ phần tử đầu, hoãn thì đẩy về cuối.
 
@@ -508,40 +540,42 @@ Backend lưu bền vững và kiểm tra `defaultCoderModel`/`defaultSpecModel` 
 ## Phụ lục A — Bản đồ component ↔ API
 
 ```
-src/app/api/[...path]/route.ts   proxy duy nhất → src/lib/server/backend-proxy.ts → ${BACKEND_URL}
+src/app/                 route mỏng: page.tsx chỉ render Screen; layout.tsx gắn <Providers> (cấu hình LLM)
+  api/[...path]/route.ts proxy duy nhất → src/lib/server/backend-proxy.ts → ${BACKEND_URL}
 src/lib/api/
-  client.ts          apiRequest, ApiError, readNdjson, withQuery, toDisplayError (giữ status 501)
-  endpoints.ts       api.{datasets,runs,stats,cases,tickets,admission,evidence,revocation,results,experiments,faultInjection,settings}
-  types.ts           DTO — hợp đồng với backend
-  use-api-query.ts   hook đọc dữ liệu (huỷ request cũ, reload, setData sau mutation, errorStatus)
-
-src/features/runs/RunGate.tsx   lấy [runId] trên URL, không có thì GET /api/runs/current
+  client.ts              apiRequest, readSse, ApiError, withQuery, toDisplayError (giữ status 501)
+  endpoints.ts           api.{chat,runs,stats,evidence,results,experiments,faultInjection,settings}
+  types.ts               DTO — hợp đồng với backend
+  use-api-query.ts       hook đọc dữ liệu (huỷ request cũ, reload, setData sau mutation, errorStatus)
+src/core/                kiểu dữ liệu thuần (không React/Next): types, schema, experiment, results
 src/features/<feature>/
   <Feature>Screen.tsx    màn hình (client), lấy dữ liệu qua useApiQuery + api.*
-  components/*.tsx       component trình bày, nhận dữ liệu qua props
-src/app/**/page.tsx      chỉ bọc <Suspense> và render Screen tương ứng
-src/ui/layout            PageHeader, Panel, MetricTile, Notice, Badge, QueryBoundary, ErrorState (501 → "chưa khả dụng")
+  components/*.tsx       component trình bày, chỉ dùng trong feature đó
+  use-*.ts               hook riêng của feature
+src/features/runs/       RunGate (lấy [runId] trên URL, không có thì GET /api/runs/current), useRouteParam
+src/ui/
+  shell/                 AppShell, Sidebar (thu/phóng), Topbar, InvariantBar, ShellPage, use-theme
+  layout/                PageHeader, Panel, MetricTile, Notice, Badge, QueryBoundary, ErrorState (501 → "chưa khả dụng")
+  primitives/            Button, Field
+src/i18n/vi.ts           toàn bộ chuỗi giao diện
+src/styles/              tokens.css (công thức OKLCH), globals.css
 ```
 
 | Feature | Screen | API |
 |---|---|---|
 | shell | `Topbar`, `RunGate` | 2.4, 2.6 |
-| library | `LibraryScreen` | 1.3, 3.1, 3.2 |
-| admission | `AdmissionScreen` | 6.1–6.3, 3.3 (SSE) |
-| annotate | `AnnotateScreen` | 5.1–5.3 |
+| chat | `ChatScreen` (`/`) | 0 |
 | evidence | `EvidenceScreen` | 7.1 |
-| revocation | `RevocationScreen` | 8.1, 8.2 |
-| repair-gate | `RepairGateScreen` + `RepairGatePanel` | 4.1, 4.3, 4.5 |
 | results | `ResultsScreen` | 9.1 |
 | experiments | `ExperimentsScreen` | 10.1–10.4 |
 | fault-injection | `FaultInjectionScreen` | 11.1, 11.2 |
 | settings | `SettingsScreen` | 12.1, 12.2 |
 | history | `HistoryScreen`, `RunDetailScreen` | 2.1, 2.3, 2.5, 2.8, 2.10 |
 | stats | `StatsScreen` | 2.12 |
-| chat / workbench | `ChatScreen`, `ChatTestbed`, `WorkbenchScreen` | 1.1, 2.2, 2.7, 2.9, 2.11, 4.1, 4.4, 5.1 |
 
 ## Phụ lục B — Kiểm thử hợp đồng
 
-- `tests/api/backend-proxy.test.ts`: proxy chuyển đúng method/path/query/body, trả 503 khi thiếu `BACKEND_URL`, 502 khi backend không kết nối được, giữ nguyên 501, truyền thẳng NDJSON, lọc `grading`.
+- `tests/api/backend-proxy.test.ts`: proxy chuyển đúng method/path/query/body, trả 503 khi thiếu `BACKEND_URL`, 502 khi backend không kết nối được, giữ nguyên 501, truyền thẳng stream, lọc `grading`.
+- `tests/ui/chat.test.tsx`: trang Hỏi đáp gửi đúng body `POST /api/run`, hiển thị các bước và kết luận từ SSE, chỉ một lượt mỗi yêu cầu, không ghi key vào bộ nhớ trình duyệt.
 - `tests/helpers/api-routes.ts` + `tests/fixtures/api.ts`: giả lập backend ở tầng `fetch` bằng response đúng hợp đồng này (fixture **chỉ** dùng trong test, app không import). Test UI kiểm tra cả trạng thái 501 “chưa khả dụng”.
 - Khi đổi hợp đồng: sửa `src/lib/api/types.ts`, rồi tới fixture test và tài liệu này.

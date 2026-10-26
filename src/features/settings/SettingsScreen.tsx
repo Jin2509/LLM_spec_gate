@@ -27,7 +27,7 @@ export function SettingsScreen() {
       const saved = await api.settings.update(current);
       settingsQuery.setData(() => saved);
       setDraft({});
-      setFeedback({ ok: true, text: "Đã lưu các cấu hình tham số thí nghiệm thành công." });
+      setFeedback({ ok: true, text: "Đã lưu cài đặt." });
     } catch (error) {
       setFeedback({ ok: false, ...toDisplayError(error) });
     } finally {
@@ -37,15 +37,15 @@ export function SettingsScreen() {
 
   return (
     <AppShell currentRunId={runId}>
-      <div className="flex flex-col gap-6 max-w-4xl mx-auto py-2 font-sans">
+      <div className="flex flex-col gap-6 max-w-4xl w-full mx-auto">
         <PageHeader
           testId="settings-header"
-          eyebrow={<>Cài đặt Hệ thống &amp; Tham số Phòng thí nghiệm</>}
-          title={<>Laboratory Settings &amp; Execution Policies</>}
-          description="Cấu hình ngân sách tài nguyên, thời gian chờ Z3/A3 và cơ chế an toàn dữ liệu khoa học."
+          eyebrow="Hệ thống"
+          title="Cài đặt"
+          description="Mô hình mặc định, ngân sách, thời gian chờ và các tính năng tuỳ chọn. Áp dụng cho các lượt chạy tạo sau khi lưu."
           actions={
             <Button data-testid="save-settings-btn" variant="primary" disabled={!current || isSaving} onClick={() => void handleSave()}>
-              {isSaving ? "Đang lưu..." : "Lưu Cấu hình"}
+              {isSaving ? "Đang lưu..." : "Lưu cài đặt"}
             </Button>
           }
         />
@@ -53,13 +53,13 @@ export function SettingsScreen() {
         {feedback &&
           (feedback.ok ? (
             <Notice tone="success" testId="settings-feedback">
-              ✓ {feedback.text}
+              {feedback.text}
             </Notice>
           ) : (
             <ErrorState message={feedback.message} status={feedback.status} />
           ))}
 
-        <QueryBoundary query={settingsQuery} loadingLabel="Đang tải Cài đặt...">
+        <QueryBoundary query={settingsQuery} loadingLabel="Đang tải cài đặt...">
           {({ models, settings }) => {
             const values = { ...settings, ...draft };
             return (

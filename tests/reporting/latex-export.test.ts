@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { generateLatexTable, generateCsv, generateJson } from "@/reporting/results-data";
+import { generateLatexTable, generateCsv, generateJson } from "@/core/results";
 
 describe("LaTeX & Structured Data Export Engines", () => {
   const headers = ["Phương pháp", "Coverage (%)", "Residual Risk (%)"];

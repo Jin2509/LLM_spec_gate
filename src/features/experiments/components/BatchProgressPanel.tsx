@@ -1,6 +1,6 @@
 "use client";
 
-import { PenLine } from "lucide-react";
+import { MessageCircleQuestion, Play } from "lucide-react";
 import React from "react";
 import Link from "next/link";
 import type { DisplayError, ExperimentProgress } from "@/lib/api";
@@ -20,10 +20,11 @@ export function BatchProgressPanel({ progress, isRunning, canStart, showHumanOra
   return (
     <Panel
       testId="batch-progress-table"
-      title={<>3. Tiến độ Batch Run &amp; Giám sát Luồng</>}
+      title="Tiến độ"
       aside={
         <Button data-testid="start-batch-btn" variant="primary" disabled={isRunning || !canStart} onClick={onStart}>
-          {isRunning ? "Đang chạy Batch..." : "▶ Chạy Batch Thực nghiệm"}
+          <Play size={15} aria-hidden="true" />
+          {isRunning ? "Đang chạy..." : "Chạy thực nghiệm"}
         </Button>
       }
     >
@@ -32,36 +33,34 @@ export function BatchProgressPanel({ progress, isRunning, canStart, showHumanOra
       {showHumanOracleLink && (
         <div
           data-testid="human-oracle-link-banner"
-          className="p-3 rounded border flex items-center justify-between"
-          style={{ backgroundColor: "var(--paper-ground)", borderColor: "var(--action)", borderWidth: "1.5px" }}
+          className="px-4 py-3 rounded-[var(--radius-md)] border flex flex-wrap items-center justify-between gap-3 text-[13.5px]"
+          style={{ backgroundColor: "var(--accent-soft)", borderColor: "var(--accent-line)" }}
         >
-          <div className="flex items-center gap-2">
-            <PenLine size={14} className="inline-block shrink-0 align-[-2px]" aria-hidden="true" />
-            <span>
-              Chế độ Human Oracle đang chọn <strong>Người thật</strong>. Cần con người giải quyết các vé mâu thuẫn/chưa rõ.
-            </span>
-          </div>
+          <span className="flex items-center gap-2" style={{ color: "var(--ink)" }}>
+            <MessageCircleQuestion size={16} aria-hidden="true" style={{ color: "var(--accent)" }} />
+            Đang chọn <strong>người thật</strong> trả lời: các câu hỏi phát sinh sẽ nằm ở màn Hỏi người.
+          </span>
           <Link
             href="/annotate"
             data-testid="go-to-annotate-link"
-            className="px-3 py-1.5 rounded font-bold hover:underline flex items-center gap-2"
-            style={{ backgroundColor: "var(--action)", color: "var(--paper-surface)", borderRadius: "var(--r-cell)" }}
+            className="inline-flex items-center gap-2 h-8 px-3 rounded-[var(--radius-sm)] font-medium"
+            style={{ backgroundColor: "var(--accent)", color: "var(--on-accent)" }}
           >
-            <span>Mở Focus Mode Gán nhãn</span>
-            <span className="px-1.5 rounded text-[11px]" style={{ backgroundColor: "rgba(255,255,255,0.2)" }}>
-              {progress.pendingHumanTickets} thẻ chờ
+            Trả lời câu hỏi
+            <span className="px-1.5 rounded-full text-[11.5px]" style={{ backgroundColor: "color-mix(in oklch, var(--on-accent) 22%, transparent)" }}>
+              {progress.pendingHumanTickets} đang chờ
             </span>
           </Link>
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
-        <MetricTile label="Tiến độ" value={`${progress.completed} / ${progress.total}`} />
-        <MetricTile label="Qua (ACC)" value={progress.accCount} valueColor="var(--v-acc)" borderColor="var(--v-acc)" />
-        <MetricTile label="Bác (REJ)" value={progress.rejCount} valueColor="var(--v-code)" borderColor="var(--v-code)" />
-        <MetricTile label="UNKNOWN" value={progress.unknownCount} valueColor="var(--v-unknown)" borderColor="var(--v-unknown)" />
-        <MetricTile label="Repair Thành công" value={progress.repairCount} valueColor="var(--action)" borderColor="var(--action)" />
-        <MetricTile label="Thu hồi (Revoked)" value={progress.revocations} valueColor="var(--v-code)" borderColor="var(--v-code)" />
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+        <MetricTile label="Đã xong" value={`${progress.completed} / ${progress.total}`} />
+        <MetricTile label="Chấp nhận (ACC)" value={progress.accCount} valueColor="var(--v-acc)" />
+        <MetricTile label="Bác bỏ (REJ)" value={progress.rejCount} valueColor="var(--v-code)" />
+        <MetricTile label="Chưa kết luận" value={progress.unknownCount} valueColor="var(--v-unknown)" />
+        <MetricTile label="Bản sửa đã triển khai" value={progress.repairCount} valueColor="var(--accent)" />
+        <MetricTile label="Bản sửa bị thu hồi" value={progress.revocations} valueColor="var(--v-code)" />
       </div>
     </Panel>
   );
