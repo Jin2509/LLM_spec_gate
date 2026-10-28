@@ -72,15 +72,13 @@ export function BarChartCard({ title, rows }: { title: string; rows: { label: st
 /** Biểu đồ tròn tỷ lệ verdict (conic-gradient, không cần thư viện); bảng số liệu nằm trong "Xem dạng bảng". */
 export function VerdictPieCard({ rows }: { rows: Array<{ key: (typeof VERDICT_CLASSES)[number]; value: number }> }) {
   const total = rows.reduce((sum, r) => sum + r.value, 0);
-  let start = 0;
-  const stops = rows
-    .filter((r) => r.value > 0)
-    .map((r) => {
-      const end = start + (r.value / total) * 100;
-      const stop = `${VERDICT_CLASS_COLORS[r.key]} ${start}% ${end}%`;
-      start = end;
-      return stop;
-    });
+  const present = rows.filter((r) => r.value > 0);
+  const stops = present.map((r, i) => {
+    const before = present.slice(0, i).reduce((sum, x) => sum + x.value, 0);
+    const start = (before / total) * 100;
+    const end = ((before + r.value) / total) * 100;
+    return `${VERDICT_CLASS_COLORS[r.key]} ${start}% ${end}%`;
+  });
   const share = (n: number) => (total ? `${((n / total) * 100).toFixed(1)}%` : "0%");
   return (
     <StatCard
