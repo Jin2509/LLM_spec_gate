@@ -41,6 +41,7 @@ export const i18n = {
     conclusion: "Kết luận",
     stopped: "Đã dừng theo yêu cầu.",
     done: "Hoàn tất.",
+    viewInHistory: "Xem trong Lịch sử",
   },
   dataset: {
     label: "Dataset",
@@ -53,7 +54,7 @@ export const i18n = {
     uploaded: "Đã tải dataset lên.",
     uploadErrors: "Tệp có dòng không hợp lệ:",
   },
-  /** Cấu hình 2 LLM. Key chỉ giữ trong bộ nhớ tab, gửi kèm mỗi yêu cầu, không lưu ở đâu cả. */
+  /** Cấu hình 2 LLM. Key giữ trong sessionStorage của tab (còn khi tải lại, mất khi đóng tab), gửi kèm mỗi yêu cầu. */
   llm: {
     title: "Mô hình",
     edit: "Sửa",
@@ -67,7 +68,8 @@ export const i18n = {
     hideKey: "Ẩn key",
     ready: "Đã nhập key",
     missing: "Chưa nhập key",
-    privacy: "Key chỉ nằm trong bộ nhớ của tab này và được gửi kèm từng yêu cầu tới backend. Không lưu vào trình duyệt, máy chủ hay nhật ký; đóng tab là mất.",
+    privacy: "Key chỉ được giữ trong tab này (sessionStorage): tải lại trang vẫn còn, đóng tab là mất. Key được gửi kèm từng yêu cầu tới backend; backend không ghi key vào cơ sở dữ liệu hay nhật ký.",
+    clearKeys: "Xoá key",
   },
   /** Nhãn phán quyết dễ hiểu; mã gốc (SPEC_FAULT…) hiển thị ở tooltip. */
   verdicts: {

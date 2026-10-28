@@ -7,7 +7,8 @@
  */
 "use client";
 
-import { Play, RotateCcw } from "lucide-react";
+import { History, Play, RotateCcw } from "lucide-react";
+import Link from "next/link";
 import React, { useState } from "react";
 import type { ChatStepId } from "@/lib/api";
 import { i18n } from "@/i18n/vi";
@@ -157,8 +158,19 @@ export function ChatScreen() {
             </div>
           ) : (
             <div className="flex flex-wrap items-center justify-between gap-3 py-2">
-              <span className="text-[13px]" style={{ color: "var(--ink-soft)" }}>
+              <span className="flex flex-wrap items-center gap-3 text-[13px]" style={{ color: "var(--ink-soft)" }}>
                 {state.phase === "done" ? t.done : ""}
+                {state.runId && (
+                  <Link
+                    href={`/history/${encodeURIComponent(state.runId)}`}
+                    data-testid="chat-history-link"
+                    className="inline-flex items-center gap-1.5 underline underline-offset-2"
+                    style={{ color: "var(--accent)" }}
+                  >
+                    <History size={14} aria-hidden="true" />
+                    {t.viewInHistory}
+                  </Link>
+                )}
               </span>
               <Button onClick={reset} data-testid="chat-new">
                 <RotateCcw size={15} aria-hidden="true" />

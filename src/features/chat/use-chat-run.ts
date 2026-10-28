@@ -5,6 +5,9 @@
  * Nếu backend kèm `question` (kết luận "unknown") thì hỏi người dùng ĐÚNG MỘT lần; câu trả lời đi qua
  * POST /api/run/followup và kết luận của vòng này là cuối cùng. Hook chỉ gom sự kiện SSE thành state để
  * hiển thị; hỏi hay không, hỏi gì và kết luận ra sao đều do backend quyết định.
+ *
+ * Backend lưu mỗi lượt thành một evaluation run (event `run` đầu luồng mang `runId`), nên kết quả hiện
+ * trong Lịch sử / Thống kê; lượt hỏi lại gửi kèm `runId` để ghi tiếp vào đúng run đó.
  */
 "use client";
 
@@ -43,6 +46,8 @@ export interface ChatRunState {
   /** "asking": backend đang chờ câu trả lời duy nhất của người dùng. */
   phase: "idle" | "running" | "asking" | "done" | "error" | "stopped";
   task?: ChatTask;
+  /** Evaluation run backend đã tạo cho lượt này (xem trong Lịch sử). */
+  runId?: string;
   first: ChatRound;
   /** Câu trả lời người dùng gửi ở lượt hỏi lại (có thì vòng hiện tại là `followup`). */
   answer?: string;
@@ -67,6 +72,7 @@ function upsertStep(steps: ChatStep[], step: ChatStep): ChatStep[] {
 }
 
 function applyEvent(round: ChatRound, event: ChatEvent): ChatRound {
+  if (event.event === "run") return round;
   if (event.event === "step") {
     const { step, ...rest } = event.data;
     return { ...round, steps: upsertStep(round.steps, { id: step, ...rest }) };
@@ -83,6 +89,7 @@ function reducer(state: ChatRunState, action: Action): ChatRunState {
       return { ...state, phase: "running", answer: action.answer, followup: { steps: [] } };
     case "event": {
       const { event } = action;
+      if (event.event === "run") return { ...state, runId: event.data.runId };
       const inFollowup = state.followup !== undefined;
       const round = applyEvent(inFollowup ? state.followup! : state.first, event);
       const next = inFollowup ? { ...state, followup: round } : { ...state, first: round };
@@ -138,13 +145,21 @@ export function useChatRun() {
   /** Lượt hỏi lại duy nhất: chỉ gửi được khi backend đang hỏi (phase "asking"). */
   const answer = useCallback(
     (text: string, llmSpec: LlmConfig) => {
-      if (state.phase !== "asking" || !state.task) return Promise.resolve();
+      if (state.phase !== "asking" || !state.task || !state.runId) return Promise.resolve();
       const { datasetId, taskId } = state.task;
-      const body = { llmSpec, datasetId, taskId, spec: outputOf(state.first, "spec"), code: outputOf(state.first, "code"), answer: text };
+      const body = {
+        runId: state.runId,
+        llmSpec,
+        datasetId,
+        taskId,
+        spec: outputOf(state.first, "spec"),
+        code: outputOf(state.first, "code"),
+        answer: text,
+      };
       dispatch({ type: "answer", answer: text });
       return consume((signal) => api.chat.followup(body, signal));
     },
-    [consume, state.phase, state.task, state.first],
+    [consume, state.phase, state.task, state.runId, state.first],
   );
 
   const stop = useCallback(() => {

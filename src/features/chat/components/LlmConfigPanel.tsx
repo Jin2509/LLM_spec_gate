@@ -4,7 +4,7 @@
  */
 "use client";
 
-import { Check, ChevronDown, Eye, EyeOff, KeyRound, ShieldCheck } from "lucide-react";
+import { Check, ChevronDown, Eye, EyeOff, KeyRound, ShieldCheck, Trash2 } from "lucide-react";
 import React, { useId, useState } from "react";
 import type { LlmConfig, LlmProvider } from "@/lib/api";
 import { i18n } from "@/i18n/vi";
@@ -104,7 +104,8 @@ function LlmCard({ role, config, onChange }: { role: LlmRole; config: LlmConfig;
 }
 
 export function LlmConfigPanel({ defaultOpen }: { defaultOpen?: boolean }) {
-  const { configs, update, ready } = useLlmConfig();
+  const { configs, update, clearKeys, ready } = useLlmConfig();
+  const hasKey = LLM_ROLES.some((role) => configs[role].apiKey !== "");
   const [open, setOpen] = useState(defaultOpen ?? !ready);
 
   return (
@@ -145,10 +146,24 @@ export function LlmConfigPanel({ defaultOpen }: { defaultOpen?: boolean }) {
               <LlmCard key={role} role={role} config={configs[role]} onChange={(patch) => update(role, patch)} />
             ))}
           </div>
-          <p className="m-0 flex gap-2 text-[12.5px] leading-relaxed" style={{ color: "var(--ink-soft)" }} data-testid="llm-privacy">
-            <ShieldCheck size={15} className="shrink-0 mt-0.5" aria-hidden="true" />
-            {t.privacy}
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <p className="m-0 flex-1 min-w-0 flex gap-2 text-[12.5px] leading-relaxed" style={{ color: "var(--ink-soft)" }} data-testid="llm-privacy">
+              <ShieldCheck size={15} className="shrink-0 mt-0.5" aria-hidden="true" />
+              {t.privacy}
+            </p>
+            {hasKey && (
+              <button
+                type="button"
+                onClick={clearKeys}
+                data-testid="llm-clear-keys"
+                className="inline-flex items-center gap-1.5 px-2.5 h-8 rounded-[var(--radius-sm)] text-[12.5px] font-medium cursor-pointer hover:bg-[var(--bg-hover)]"
+                style={{ color: "var(--v-code)" }}
+              >
+                <Trash2 size={14} aria-hidden="true" />
+                {t.clearKeys}
+              </button>
+            )}
+          </div>
         </div>
       )}
     </section>

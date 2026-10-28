@@ -23,8 +23,8 @@ export function ApiKeysNotice() {
           <Link href="/" className="underline underline-offset-2" style={{ color: "var(--accent)" }}>
             Hỏi đáp
           </Link>
-          . Key chỉ nằm trong bộ nhớ của tab và được gửi kèm từng yêu cầu; giao diện{" "}
-          <strong>không lưu key vào trình duyệt</strong> và backend không ghi key vào cơ sở dữ liệu hay nhật ký.
+          . Key chỉ được giữ trong tab đó (sessionStorage): tải lại trang vẫn còn, <strong>đóng tab là mất</strong>.
+          Key được gửi kèm từng yêu cầu; backend không ghi key vào cơ sở dữ liệu hay nhật ký.
         </p>
         <p className="m-0 text-[13px] leading-relaxed" style={{ color: "var(--text-secondary)" }}>
           Các lượt chạy thực nghiệm dùng key đặt trong biến môi trường của backend:

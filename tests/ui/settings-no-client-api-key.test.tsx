@@ -18,7 +18,7 @@ describe("Settings Page Security Architecture", () => {
 
     const placeholder = screen.getByTestId("api-keys-placeholder");
     expect(placeholder.textContent).toContain("API key không được lưu ở đây");
-    expect(placeholder.textContent).toContain("không lưu key vào trình duyệt");
+    expect(placeholder.textContent).toContain("đóng tab là mất");
   });
 
   it("saves only the LabSettings fields (never an API key) via PUT /api/settings", async () => {

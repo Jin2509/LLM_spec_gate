@@ -10,6 +10,7 @@ import {
   confidenceHistogram,
   confusionMatrix,
   countByDay,
+  countByVerdictClass,
   countByModelPair,
   countByProblem,
   runsNeedingReview,
@@ -24,6 +25,7 @@ import {
   RawMetricsCard,
   VERDICT_CLASS_LABELS,
   ReviewQueueCard,
+  VerdictPieCard,
 } from "./components/StatCards";
 
 function downloadJson(raw: string, filename: string) {
@@ -65,6 +67,7 @@ export function StatsScreen() {
       {statsQuery.error && <ErrorState message={statsQuery.error} status={statsQuery.errorStatus} onRetry={statsQuery.reload} />}
       <MetricGrid metrics={metrics} />
       <div className="stats-grid">
+        <VerdictPieCard rows={countByVerdictClass(metrics?.byVerdict)} />
         <BarChartCard title="Số phiên theo phán quyết" rows={VERDICT_CLASSES.map((key) => ({ label: VERDICT_CLASS_LABELS[key], value: metrics?.byVerdict[key] ?? 0 }))} />
         <ProblemBreakdownCard rows={countByProblem(runs)} />
         <ConfusionMatrixCard matrix={confusionMatrix(runs)} totalRuns={runs.length} />

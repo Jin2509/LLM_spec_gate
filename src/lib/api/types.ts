@@ -110,6 +110,8 @@ export interface ChatRequest {
 }
 /** Lượt hỏi lại duy nhất khi kết luận là "unknown": gửi câu trả lời của người dùng cùng đặc tả/code vòng đầu. */
 export interface ChatFollowupRequest {
+  /** Evaluation run mà backend tạo ở vòng đầu (event `run`); lượt hỏi lại được ghi tiếp vào run này. */
+  runId: string;
   llmSpec: LlmConfig;
   datasetId: string;
   taskId: string;
@@ -121,6 +123,8 @@ export type ChatStepId = "spec" | "code" | "check";
 /** Kết luận do backend quyết định; UI chỉ ánh xạ sang nhãn và màu. */
 export type ChatVerdict = "consistent" | "spec_fault" | "code_fault" | "unknown";
 export type ChatEvent =
+  /** Luôn là sự kiện đầu tiên: id của evaluation run được lưu cho Lịch sử / Thống kê. */
+  | { event: "run"; data: { runId: string } }
   | { event: "step"; data: { step: ChatStepId; status: "running" } }
   | { event: "step"; data: { step: ChatStepId; status: "done"; output: string; durationMs: number } }
   /** `question` chỉ có khi backend cần hỏi lại người dùng (một lần). */

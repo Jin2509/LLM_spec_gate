@@ -7,14 +7,15 @@ function verdictLabel(verdict: unknown): string {
   return v.startsWith("UNKNOWN") ? "UNKNOWN" : v;
 }
 
-export const VERDICT_CLASSES = ["CODE_FAULT", "SPEC_FAULT", "UNKNOWN"] as const;
+/** ACC = đặc tả và code khớp nhau (kết luận "consistent" của trang Hỏi đáp). */
+export const VERDICT_CLASSES = ["ACC", "CODE_FAULT", "SPEC_FAULT", "UNKNOWN"] as const;
 
 const lastVerdict = (run: Run) => run.verdicts.at(-1);
 
 export function countByProblem(runs: readonly Run[]): Array<[string, Record<string, number>]> {
   const counts = new Map<string, Record<string, number>>();
   for (const run of runs) {
-    const current = counts.get(run.problem_id) ?? { CODE_FAULT: 0, SPEC_FAULT: 0, UNKNOWN: 0 };
+    const current = counts.get(run.problem_id) ?? { ACC: 0, CODE_FAULT: 0, SPEC_FAULT: 0, UNKNOWN: 0 };
     const label = verdictLabel(lastVerdict(run));
     if (label in current) current[label] = (current[label] ?? 0) + 1;
     counts.set(run.problem_id, current);
@@ -69,4 +70,14 @@ export function countByModelPair(runs: readonly Run[]): Array<{ pair: string; to
 
 export function runsNeedingReview(runs: readonly Run[]): Run[] {
   return runs.filter((r) => (r.gold_label && r.gold_label !== lastVerdict(r)) || verdictLabel(lastVerdict(r)) === "UNKNOWN");
+}
+
+/** Số run theo nhóm verdict (verdict cuối), cho biểu đồ tròn. */
+export function countByVerdictClass(byVerdict: Record<string, number> | undefined): Array<{ key: (typeof VERDICT_CLASSES)[number]; value: number }> {
+  const totals: Record<string, number> = Object.fromEntries(VERDICT_CLASSES.map((c) => [c, 0]));
+  for (const [verdict, n] of Object.entries(byVerdict ?? {})) {
+    const label = verdictLabel(verdict);
+    if (label in totals) totals[label] = (totals[label] ?? 0) + n;
+  }
+  return VERDICT_CLASSES.map((key) => ({ key, value: totals[key] ?? 0 }));
 }

@@ -7,6 +7,7 @@ import { VERDICT_CLASSES } from "../derive";
 
 /** Nhãn hiển thị cho nhóm verdict; khoá dữ liệu giữ nguyên mã gốc. */
 export const VERDICT_CLASS_LABELS: Record<(typeof VERDICT_CLASSES)[number], string> = {
+  ACC: "Đặc tả và code khớp",
   CODE_FAULT: "Lỗi code",
   SPEC_FAULT: "Lỗi đặc tả",
   UNKNOWN: "Chưa kết luận",
@@ -27,7 +28,16 @@ export function StatCard({ title, children, table }: { title: string; children: 
   );
 }
 
+/** Màu theo nhóm verdict (token OKLCH trong tokens.css). */
+const VERDICT_CLASS_COLORS: Record<(typeof VERDICT_CLASSES)[number], string> = {
+  ACC: "var(--v-acc)",
+  CODE_FAULT: "var(--v-code)",
+  SPEC_FAULT: "var(--v-spec)",
+  UNKNOWN: "var(--v-unknown)",
+};
+
 export function BarChartCard({ title, rows }: { title: string; rows: { label: string; value: number }[] }) {
+  const max = Math.max(0, ...rows.map((r) => r.value));
   return (
     <StatCard
       title={title}
@@ -49,12 +59,69 @@ export function BarChartCard({ title, rows }: { title: string; rows: { label: st
           <div className="bar-row" key={row.label}>
             <span>{row.label}</span>
             <div className="bar-track" tabIndex={0} aria-label={`${row.label}: ${row.value}`}>
-              <div className="bar-fill" style={{ width: `${Math.max(1, row.value)}%` }} />
+              <div className="bar-fill" style={{ width: `${max ? Math.max(1, (row.value / max) * 100) : 0}%` }} />
             </div>
             <b className="mono">{row.value}</b>
           </div>
         ))}
       </div>
+    </StatCard>
+  );
+}
+
+/** Biểu đồ tròn tỷ lệ verdict (conic-gradient, không cần thư viện); bảng số liệu nằm trong "Xem dạng bảng". */
+export function VerdictPieCard({ rows }: { rows: Array<{ key: (typeof VERDICT_CLASSES)[number]; value: number }> }) {
+  const total = rows.reduce((sum, r) => sum + r.value, 0);
+  let start = 0;
+  const stops = rows
+    .filter((r) => r.value > 0)
+    .map((r) => {
+      const end = start + (r.value / total) * 100;
+      const stop = `${VERDICT_CLASS_COLORS[r.key]} ${start}% ${end}%`;
+      start = end;
+      return stop;
+    });
+  const share = (n: number) => (total ? `${((n / total) * 100).toFixed(1)}%` : "0%");
+  return (
+    <StatCard
+      title="Tỷ lệ phán quyết"
+      table={
+        <table className="eval-table">
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.key}>
+                <th>{VERDICT_CLASS_LABELS[r.key]}</th>
+                <td>{r.value}</td>
+                <td>{share(r.value)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      }
+    >
+      {total === 0 ? (
+        <p>Chưa có phiên nào có kết luận.</p>
+      ) : (
+        <div className="pie-wrap" data-testid="verdict-pie">
+          <div
+            className="pie"
+            role="img"
+            aria-label={rows.map((r) => `${VERDICT_CLASS_LABELS[r.key]}: ${r.value} (${share(r.value)})`).join(", ")}
+            style={{ background: `conic-gradient(${stops.join(", ")})` }}
+          />
+          <ul className="pie-legend">
+            {rows.map((r) => (
+              <li key={r.key}>
+                <span className="pie-swatch" style={{ background: VERDICT_CLASS_COLORS[r.key] }} aria-hidden="true" />
+                <span>{VERDICT_CLASS_LABELS[r.key]}</span>
+                <b className="mono">
+                  {r.value} · {share(r.value)}
+                </b>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </StatCard>
   );
 }

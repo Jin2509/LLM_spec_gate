@@ -25,7 +25,7 @@ Trình duyệt ──fetch /api/*──▶ Next.js  src/app/api/[...path]/route.
 | **Chưa có engine** | Chức năng cần LLM / Z3 / pipeline mà backend chưa có thì trả **501** `{ "error": "<lý do>", "code": "ENGINE_NOT_CONFIGURED" }`. UI hiển thị “🚧 Chức năng chưa khả dụng” (`data-testid="feature-unavailable"`) và **không bao giờ** thay bằng số liệu minh hoạ |
 | Không có dữ liệu | Trả rỗng hợp lệ (`[]`, `total: 0`) chứ không trả dữ liệu mẫu. 404 chỉ dùng khi tài nguyên được hỏi đích danh không tồn tại |
 | `grading` | **Bắt buộc** loại trường `grading` khỏi mọi response |
-| API keys | Chỉ `POST /api/run` nhận key (của 2 LLM do người dùng nhập ở trang Hỏi đáp) trong body; backend dùng trong request rồi bỏ, không lưu DB, không log, không trả lại. Mọi endpoint khác không nhận/trả key; lượt chạy thực nghiệm dùng key ở môi trường backend |
+| API keys | Chỉ `POST /api/run` và `POST /api/run/followup` nhận key (của 2 LLM do người dùng nhập ở trang Hỏi đáp) trong body; backend dùng trong request rồi bỏ, không lưu DB, không log, không trả lại. Mọi endpoint khác không nhận/trả key; lượt chạy thực nghiệm dùng key ở môi trường backend |
 | Huỷ request | Client gửi `AbortSignal`; proxy chuyển tín hiệu huỷ sang backend |
 
 Các endpoint có thể trả **501** khi chưa có engine: 4.4 (stream phân xử), 4.5 (ứng viên sửa), 6.1–6.2 (admission), 7.1 (evidence), 8.2 (tiêm vết xấu), 9.1 (kết quả RQ), 10.2–10.4 (experiments), 11.2 (fault-injection).
@@ -86,7 +86,7 @@ Giao diện chỉ còn một trang hỏi đáp (`/`) thay cho các màn vòng đ
 Luồng của trang Hỏi đáp (`/`):
 
 1. Người dùng chọn **dataset + tác vụ** (1.1, upload bằng 1.2) và nhập key của 2 LLM. Không phải gõ gì.
-2. `POST /api/run`: backend đọc tác vụ, sinh đặc tả bằng LLM đặc tả, sinh code bằng LLM code (độc lập), đối chiếu rồi trả kết luận. Không ghi DB.
+2. `POST /api/run`: backend đọc tác vụ, sinh đặc tả bằng LLM đặc tả, sinh code bằng LLM code (độc lập), đối chiếu rồi trả kết luận. Mỗi lượt được lưu thành một **evaluation run** (mục 2), nên hiện trong Lịch sử và Thống kê; key không bao giờ được lưu.
 3. Chỉ khi kết luận là `unknown`, backend kèm `question`. UI hiện câu hỏi và mở ô trả lời **đúng một lần**.
 4. `POST /api/run/followup`: đối chiếu lại với câu trả lời; kết luận trả về là **cuối cùng** (không bao giờ kèm `question`).
 
@@ -103,21 +103,26 @@ Luồng của trang Hỏi đáp (`/`):
 `POST /api/run/followup`:
 
 ```json
-{ "datasetId": "ds_…", "taskId": "t_median", "llmSpec": { … }, "spec": "<đặc tả vòng 1>", "code": "<code vòng 1>", "answer": "<câu trả lời>" }
+{ "runId": "eval_…", "datasetId": "ds_…", "taskId": "t_median", "llmSpec": { … }, "spec": "<đặc tả vòng 1>", "code": "<code vòng 1>", "answer": "<câu trả lời>" }
 ```
 
-- Body sai → **400** `VALIDATION_ERROR` (không chứa key). Dataset/tác vụ không tồn tại → **404** `NOT_FOUND`.
+`runId` là id nhận ở event `run` của vòng đầu; lượt hỏi lại được ghi tiếp vào run đó (`followup_used = true`).
+
+- Body sai → **400** `VALIDATION_ERROR` (không chứa key). Dataset/tác vụ/run không tồn tại → **404** `NOT_FOUND`. Run đã dùng lượt hỏi lại → **409**.
+- Backend chưa có engine Hỏi đáp → **501** `ENGINE_NOT_CONFIGURED` (trả trước khi tạo run, không ghi DB).
 - Response `text/event-stream`, theo thứ tự:
 
 | event | data |
 |---|---|
+| `run` | `{ runId: string }` — luôn là sự kiện đầu tiên: id của evaluation run |
 | `step` | `{ step: "spec" \| "code" \| "check", status: "running" }` (vòng hỏi lại chỉ có `check`) |
 | `step` | `{ step, status: "done", output: string, durationMs: number }` |
 | `verdict` | `{ verdict: "consistent" \| "spec_fault" \| "code_fault" \| "unknown", reason: string, question?: string }` — sự kiện cuối |
 | `error` | `{ message: string, step? }` — sự kiện cuối khi lỗi; không bao giờ chứa key |
 
 - Hỏi hay không, hỏi gì và kết luận ra sao do backend quyết định (`app/judge.py`, pipeline tạm chờ logic bài báo). UI chỉ hiển thị.
-- Key: UI giữ trong state React của tab (`LlmConfigProvider` ở root layout), không ghi localStorage/sessionStorage/IndexedDB.
+- Ghi vào evaluation run: `spec`/`code` = `{ agent, model, version: provider, status, output, latencyMs }`; mỗi `verdict` append vào `verdicts[]` theo ánh xạ `consistent→ACC`, `spec_fault→SPEC_FAULT`, `code_fault→CODE_FAULT`, `unknown→UNKNOWN` và thêm một turn `system`; câu trả lời lượt hỏi lại là một turn `user`. `status`: `answered` khi đang chờ trả lời, `final` khi xong, `error` khi lỗi.
+- Key: UI giữ trong `sessionStorage` của tab (`LlmConfigProvider` ở root layout): tải lại trang vẫn còn, đóng tab là mất; không ghi localStorage/IndexedDB. Nút “Xoá key” xoá ngay.
 
 ## 1. Datasets & Tasks
 

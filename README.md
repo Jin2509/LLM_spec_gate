@@ -14,13 +14,15 @@ App không chứa logic của bài báo và không có dữ liệu mẫu: mọi 
 4. **Chỉ khi kết luận là UNKNOWN** hệ thống mới hỏi lại người dùng, và chỉ hỏi **đúng một lần**.
    Câu trả lời được đối chiếu thêm một vòng; kết luận của vòng này là cuối cùng và ô trả lời biến mất.
 5. Bấm **Chạy tác vụ khác** để bắt đầu lại.
+6. Mỗi lượt được backend lưu thành một evaluation run: bấm **Xem trong Lịch sử** để mở lại, trang **Thống kê** tổng hợp
+   theo phán quyết (biểu đồ tròn và cột), theo đề, theo ngày và theo cặp mô hình.
 
 Ngoài trang Hỏi đáp, sidebar (có nút thu/phóng) còn các trang Dữ liệu (Bằng chứng, Lịch sử, Thống kê), Thực nghiệm (Chạy thực nghiệm, Kết quả RQ, Tiêm lỗi) và Cài đặt.
 
 ## Nguyên tắc
 
 - **UI không chứa logic bài báo.** Hỏi hay không, hỏi gì, kết luận ra sao đều do backend quyết định; UI chỉ hiển thị (nhãn, màu, bố cục).
-- **API key** chỉ nằm trong bộ nhớ của tab (`LlmConfigProvider`), gửi kèm từng request `POST /api/run`, không ghi localStorage/sessionStorage/IndexedDB.
+- **API key** nằm trong `sessionStorage` của tab (`LlmConfigProvider`): tải lại trang vẫn còn, đóng tab là mất; gửi kèm từng request `POST /api/run`, không ghi localStorage/IndexedDB.
   Backend nhận key dưới dạng `SecretStr`, không lưu DB, không log. Trang Cài đặt không có ô nhập key.
 - **Trường `grading`** của benchmark bị lọc ở proxy (`src/guard/grading-proxy.ts`).
 - **Màu** chỉ lấy từ token OKLCH trong `src/styles/tokens.css`; độ tương phản được kiểm bằng `tests/tokens/contrast.test.ts`.

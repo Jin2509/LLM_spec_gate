@@ -76,6 +76,11 @@ code, pre, kbd, samp {
 .bar-row { display:grid; grid-template-columns:minmax(100px,1fr) 2fr 40px; gap:10px; align-items:center; margin:8px 0; font-size:13px; }
 .bar-track { height:10px; border-radius:999px; background:var(--bg-sunken); overflow:hidden; }
 .bar-fill { height:100%; border-radius:999px; background:var(--accent); }
+.pie-wrap { display:flex; flex-wrap:wrap; align-items:center; gap:20px; }
+.pie { width:140px; height:140px; border-radius:50%; flex-shrink:0; box-shadow:inset 0 0 0 1px var(--border-subtle); }
+.pie-legend { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; font-size:13px; min-width:0; }
+.pie-legend li { display:grid; grid-template-columns:12px 1fr auto; gap:8px; align-items:center; }
+.pie-swatch { width:12px; height:12px; border-radius:3px; }
 .stack-row { display:flex; gap:8px; align-items:center; padding:6px; border-bottom:1px solid var(--border-subtle); font-size:12.5px; }
 .detail-section { margin:0; }
 .detail-section textarea { width:100%; min-height:80px; height:auto; padding:8px 10px; }
